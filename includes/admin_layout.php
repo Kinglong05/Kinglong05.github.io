@@ -56,6 +56,16 @@ function admin_header(string $title, string $active = ''): void
     <div class="who"><span class="avatar"><?= e(strtoupper(substr($admin['username'] ?? 'A', 0, 1))) ?></span><span class="hide-sm"><?= e($admin['username'] ?? '') ?></span></div>
   </header>
   <div class="content">
+    <?php
+    // Reminder: local changes aren't on the live (GitHub Pages) site until you Publish
+    $changed = setting('content_changed_at');
+    $published = setting('last_published');
+    if ($active !== 'publish' && is_dir(APP_ROOT . '/.git') && $changed && (!$published || strtotime($changed) > strtotime($published))): ?>
+      <div class="alert alert-warn unpublished"><i class="fa-solid fa-cloud-arrow-up"></i>
+        <span><b>You have changes that aren't on your live site yet.</b> They show on localhost now; click Publish to update <?= e(parse_url(setting('site_url', 'https://kinglong05.github.io/'), PHP_URL_HOST) ?: 'your live site') ?>.</span>
+        <a class="btn btn-sm btn-gold" href="publish.php">Publish</a>
+      </div>
+    <?php endif; ?>
     <?php foreach (take_flashes() as $f): ?>
       <div class="alert alert-<?= e($f['type']) ?>"><i class="fa-solid <?= $f['type'] === 'success' ? 'fa-circle-check' : 'fa-circle-exclamation' ?>"></i><span><?= e($f['msg']) ?></span></div>
     <?php endforeach;

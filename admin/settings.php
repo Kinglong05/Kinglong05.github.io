@@ -13,6 +13,7 @@ $errors = [];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     require_csrf();
+    save_setting('content_changed_at', date('c')); // for the "unpublished changes" reminder
     $tx = ['new' => [], 'old' => []];
     $values = [];
     foreach ($group['fields'] as $name => $def) {

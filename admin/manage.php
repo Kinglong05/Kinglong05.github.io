@@ -28,6 +28,7 @@ $errors = [];
 /* -------- POST actions -------- */
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     require_csrf();
+    save_setting('content_changed_at', date('c')); // for the "unpublished changes" reminder
     $op = (string) ($_POST['op'] ?? '');
     $id = (int) ($_POST['id'] ?? 0);
 
