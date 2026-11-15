@@ -214,12 +214,17 @@ function deploy_vercel(): array
     }
     file_put_contents("$dir/vercel.json", json_encode(['cleanUrls' => true, 'trailingSlash' => false], JSON_PRETTY_PRINT));
 
-    $npx = null;
-    foreach (['C:/Program Files/nodejs/npx.cmd', '/usr/local/bin/npx', '/usr/bin/npx'] as $c) if (is_file($c)) { $npx = $c; break; }
-    if (!$npx) throw new RuntimeException('Node.js (npx) was not found, so Vercel could not be updated.');
-    $cmd = PHP_OS_FAMILY === 'Windows'
-        ? ['cmd', '/c', $npx, '--yes', 'vercel@65.16.0', 'deploy', '--prod', '--yes']
-        : [$npx, '--yes', 'vercel@65.16.0', 'deploy', '--prod', '--yes'];
+    // Prefer the Vercel tool installed in .deploy/tools (fast, no download); fall back to npx
+    $local = APP_ROOT . '/.deploy/tools/node_modules/.bin/' . (PHP_OS_FAMILY === 'Windows' ? 'vercel.cmd' : 'vercel');
+    if (is_file($local)) {
+        $base = [$local];
+    } else {
+        $npx = null;
+        foreach (['C:/Program Files/nodejs/npx.cmd', '/usr/local/bin/npx', '/usr/bin/npx'] as $c) if (is_file($c)) { $npx = $c; break; }
+        if (!$npx) throw new RuntimeException('Node.js was not found, so Vercel could not be updated.');
+        $base = [$npx, '--yes', 'vercel@65.16.0'];
+    }
+    $cmd = array_merge(PHP_OS_FAMILY === 'Windows' ? ['cmd', '/c'] : [], $base, ['deploy', '--prod', '--yes']);
     $env = getenv() ?: [];
     if (empty($env['APPDATA']) && !empty($env['USERPROFILE'])) $env['APPDATA'] = $env['USERPROFILE'] . '\\AppData\\Roaming';
     $env['CI'] = '1';
@@ -233,10 +238,13 @@ function deploy_vercel(): array
         $hint = preg_match('~token|log ?in|credentials~i', $out) ? "\n\nVercel needs you to sign in again: open a terminal and run  npx vercel login" : '';
         throw new RuntimeException("Vercel deploy failed:\n" . $out . $hint);
     }
-    preg_match('~Production URL:\s*(https://\S+?)["\s]~', $out . ' ', $m) || preg_match('~(https://[a-z0-9-]+\.vercel\.app)~i', $out, $m);
-    $url = $m[1] ?? '';
-    if ($url) save_setting('vercel_url', rtrim($url, '"'));
-    return ['url' => $url, 'log' => $out];
+    // Keep the main (production) address, not the one-off link of this single upload
+    $url = '';
+    if (preg_match('~Production URL:\s*(https://[^\s"]+)~', $out, $m)) {
+        $url = $m[1];
+        save_setting('vercel_url', $url);
+    }
+    return ['url' => $url ?: setting('vercel_url'), 'log' => $out];
 }
 
 /* ---------------- Git ---------------- */
