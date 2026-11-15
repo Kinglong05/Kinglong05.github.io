@@ -1,0 +1,196 @@
+<?php
+declare(strict_types=1);
+
+/**
+ * Database upgrades. Each runs once, in order, and records the new version in
+ * settings.schema_version. They run automatically on the next page load, so an
+ * existing (or live) site upgrades itself when you upload new code.
+ *
+ * Content updates only replace text that still matches the original starter text,
+ * so anything you've already edited in the admin is left alone.
+ */
+
+const SCHEMA_VERSION = 5;
+
+function run_migrations(): void
+{
+    $current = (int) (settings()['schema_version'] ?? 1);
+    if ($current >= SCHEMA_VERSION) {
+        return;
+    }
+    $pdo = db();
+    // Prevent two simultaneous requests from running the same upgrade
+    $got = (int) $pdo->query("SELECT GET_LOCK('pf_migrate', 10)")->fetchColumn();
+    if ($got !== 1) return;
+    try {
+        $current = (int) ($pdo->query("SELECT svalue FROM settings WHERE skey = 'schema_version'")->fetchColumn() ?: 1);
+        for ($v = $current + 1; $v <= SCHEMA_VERSION; $v++) {
+            $fn = 'migration_' . $v;
+            $fn($pdo);
+            save_setting('schema_version', (string) $v);
+        }
+    } finally {
+        $pdo->query("SELECT RELEASE_LOCK('pf_migrate')");
+        settings(true);
+    }
+}
+
+function mig_column_exists(PDO $pdo, string $table, string $col): bool
+{
+    $st = $pdo->prepare('SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?');
+    $st->execute([$table, $col]);
+    return (int) $st->fetchColumn() > 0;
+}
+
+function mig_set_if_default(string $key, string $old, string $new): void
+{
+    $cur = settings()[$key] ?? null;
+    if ($cur === null || $cur === '' || str_replace("\r\n", "\n", $cur) === $old) {
+        save_setting($key, $new);
+    }
+}
+
+function mig_insert_if_missing(PDO $pdo, string $table, string $keyCol, array $rows): void
+{
+    $check = $pdo->prepare("SELECT COUNT(*) FROM `$table` WHERE `$keyCol` = ?");
+    $max = (int) $pdo->query("SELECT COALESCE(MAX(sort_order), 0) FROM `$table`")->fetchColumn();
+    foreach ($rows as $row) {
+        $check->execute([$row[$keyCol]]);
+        if ((int) $check->fetchColumn() > 0) continue;
+        $row['sort_order'] = ++$max;
+        $cols = array_keys($row);
+        $sql = "INSERT INTO `$table` (`" . implode('`, `', $cols) . '`) VALUES (' . implode(', ', array_fill(0, count($cols), '?')) . ')';
+        $pdo->prepare($sql)->execute(array_values($row));
+    }
+}
+
+/** v2: photographer / videographer / drone pilot + gallery */
+function migration_2(PDO $pdo): void
+{
+    $pdo->exec("CREATE TABLE IF NOT EXISTS gallery (
+        id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        title VARCHAR(150) NOT NULL,
+        category VARCHAR(30) NOT NULL DEFAULT 'photography',
+        media_type VARCHAR(10) NOT NULL DEFAULT 'photo',
+        image VARCHAR(255) NULL,
+        video_url VARCHAR(255) NULL,
+        location VARCHAR(150) NULL,
+        description TEXT NULL,
+        layout VARCHAR(10) NOT NULL DEFAULT 'normal',
+        sort_order INT NOT NULL DEFAULT 0,
+        is_visible TINYINT(1) NOT NULL DEFAULT 1,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_cat (category)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+    if (!mig_column_exists($pdo, 'messages', 'service')) {
+        $pdo->exec('ALTER TABLE messages ADD COLUMN service VARCHAR(150) NULL AFTER email');
+    }
+
+    // --- Settings ---
+    save_setting('show_gallery', settings()['show_gallery'] ?? '1');
+    mig_set_if_default('hero_roles', '', "Web Developer\nPhotographer\nVideographer\nDrone Pilot");
+    mig_set_if_default('hero_title', "I Build Modern\nWeb **Experiences**", "I Build, Shoot &\nFly **Stories**");
+    mig_set_if_default('hero_subtitle',
+        'Full-stack developer crafting beautiful, fast and scalable digital products that solve real-world problems.',
+        'Full-stack developer, photographer, videographer and drone pilot crafting fast websites and cinematic visuals, from the ground up and from the sky.');
+    mig_set_if_default('stat2_label', 'Projects Completed', 'Projects & Shoots');
+    mig_set_if_default('about_title', "Building solutions\nwith code & **creativity.**", "Building websites &\ncapturing **stories.**");
+    mig_set_if_default('about_text',
+        "I'm a passionate Full-Stack Developer who loves building web applications and digital products. I enjoy turning ideas into reality through clean code and user-centered design.",
+        "I'm a full-stack developer and visual creator. I build fast, modern websites, and I shoot photos, films and aerial drone footage that tell a brand's story. One person for your website and the content that fills it.");
+    mig_set_if_default('about_points',
+        "Problem solver by nature\nClean, scalable and maintainable code\nPassionate about performance & UX",
+        "Clean, scalable and maintainable code\nCinematic photo & video storytelling\nAerial shots from a whole new angle");
+    mig_set_if_default('meta_title', 'Elrich Madrileno | Full-Stack Web Developer', 'Elrich Madrileno | Web Developer, Photographer, Videographer & Drone Pilot');
+    mig_set_if_default('meta_description',
+        'Portfolio of Elrich Madrileno, a full-stack developer building modern, fast and scalable web experiences.',
+        'Portfolio of Elrich Madrileno: full-stack web developer, photographer, videographer and drone pilot based in Iloilo, Philippines.');
+    mig_set_if_default('skills_note', 'Always learning new technologies', 'Code, camera & sky: always learning');
+    save_setting('sample_notice', '1');
+
+    // --- Services ---
+    mig_insert_if_missing($pdo, 'services', 'title', [
+        ['title' => 'Photography', 'description' => 'Portraits, events, products and brand photos, professionally shot and edited.', 'icon' => 'fa-solid fa-camera'],
+        ['title' => 'Videography', 'description' => 'Event coverage, promos and social media reels, from filming to final edit.', 'icon' => 'fa-solid fa-video'],
+        ['title' => 'Drone Photo & Video', 'description' => 'Aerial photos and cinematic drone footage for real estate, events, tourism and brands.', 'icon' => 'icon-drone'],
+    ]);
+    // Merge "Performance Optimization" into web dev to keep the grid tidy (only if untouched)
+    $pdo->prepare("UPDATE services SET is_visible = 0 WHERE title = 'Performance Optimization' AND description = ?")
+        ->execute(['Improving speed, SEO and overall performance for a better user experience.']);
+
+    // --- Skills / tools ---
+    mig_insert_if_missing($pdo, 'skills', 'name', [
+        ['name' => 'Photoshop', 'icon_class' => 'devicon-photoshop-plain colored'],
+        ['name' => 'Lightroom', 'icon_class' => 'fa-solid fa-sliders pf-lr'],
+        ['name' => 'Premiere Pro', 'icon_class' => 'devicon-premierepro-plain colored'],
+        ['name' => 'After Effects', 'icon_class' => 'devicon-aftereffects-plain colored'],
+        ['name' => 'DaVinci Resolve', 'icon_class' => 'fa-solid fa-film pf-gold'],
+        ['name' => 'Drone (DJI)', 'icon_class' => 'icon-drone pf-gold'],
+    ]);
+    // Hide one niche web skill (if untouched) so the grid stays an even 5×4 (20 tiles)
+    $pdo->exec("UPDATE skills SET is_visible = 0 WHERE name = 'GraphQL' AND icon_class = 'devicon-graphql-plain colored'");
+
+    // --- Experience (only replaces the untouched sample rows) ---
+    $pdo->prepare("UPDATE experiences SET role = 'Photographer & Videographer', company = 'Freelance', period = '2022 - Present',
+        description = 'Shooting portraits, events and brand content, and editing photo and video for clients and social media.', icon = 'fa-solid fa-camera'
+        WHERE role = 'Web Developer' AND company = 'Sample Company'")->execute();
+    $pdo->prepare("UPDATE experiences SET role = 'Drone Pilot', company = 'Freelance', period = '2023 - Present',
+        description = 'Flying aerial photo and video missions for real estate, events and tourism content.', icon = 'icon-drone'
+        WHERE role = 'Frontend Developer' AND company = 'Sample Studio'")->execute();
+
+    // --- Sample gallery items (replace with your own work in Admin > Gallery) ---
+    if ((int) $pdo->query('SELECT COUNT(*) FROM gallery')->fetchColumn() === 0) {
+        $items = [
+            ['Golden Hour Portraits', 'photography', 'photo', 'big', 'Iloilo City'],
+            ['Coastline From Above', 'drone', 'photo', 'wide', 'Guimaras'],
+            ['Event Highlight Reel', 'videography', 'video', 'normal', ''],
+            ['Street Series', 'photography', 'photo', 'normal', ''],
+            ['Rice Terraces Aerial', 'drone', 'photo', 'tall', ''],
+            ['Brand Promo Film', 'videography', 'video', 'normal', ''],
+            ['Product Shoot', 'photography', 'photo', 'normal', ''],
+            ['Sunset Flyover', 'drone', 'video', 'wide', ''],
+        ];
+        $st = $pdo->prepare('INSERT INTO gallery (title, category, media_type, layout, location, description, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)');
+        foreach ($items as $i => [$t, $c, $m, $l, $loc]) {
+            $st->execute([$t, $c, $m, $l, $loc, 'Sample item: upload your own photo or video link in the admin panel.', $i + 1]);
+        }
+    }
+}
+
+/** v3: longer media links (Facebook URLs can be long) */
+function migration_3(PDO $pdo): void
+{
+    $pdo->exec('ALTER TABLE gallery MODIFY video_url VARCHAR(500) NULL');
+}
+
+/** v4: photo albums (many photos per gallery item) */
+function migration_4(PDO $pdo): void
+{
+    $pdo->exec("CREATE TABLE IF NOT EXISTS gallery_photos (
+        id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        gallery_id INT UNSIGNED NOT NULL,
+        image VARCHAR(255) NOT NULL,
+        sort_order INT NOT NULL DEFAULT 0,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_gallery (gallery_id, sort_order),
+        CONSTRAINT fk_gallery_photos_gallery FOREIGN KEY (gallery_id) REFERENCES gallery (id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+    // Clear the leftover sample caption on items that now hold real content
+    $pdo->exec("UPDATE gallery SET description = '' WHERE description = 'Sample item: upload your own photo or video link in the admin panel.'
+        AND ((image IS NOT NULL AND image <> '') OR (video_url IS NOT NULL AND video_url <> ''))");
+}
+
+/** v5: self-hosted video files + remember when Facebook blocks embedding */
+function migration_5(PDO $pdo): void
+{
+    if (!mig_column_exists($pdo, 'gallery', 'video_file')) {
+        $pdo->exec('ALTER TABLE gallery ADD COLUMN video_file VARCHAR(255) NULL AFTER video_url');
+    }
+    if (!mig_column_exists($pdo, 'gallery', 'embed_status')) {
+        $pdo->exec('ALTER TABLE gallery ADD COLUMN embed_status VARCHAR(10) NULL AFTER video_file');
+    }
+    $pdo->exec("UPDATE gallery SET description = '' WHERE description = 'Sample item: upload your own photo or video link in the admin panel.'
+        AND ((image IS NOT NULL AND image <> '') OR (video_url IS NOT NULL AND video_url <> ''))");
+}

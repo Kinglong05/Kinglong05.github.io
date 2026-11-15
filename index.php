@@ -1,0 +1,467 @@
+<?php
+define('URL_PREFIX', '');
+require __DIR__ . '/includes/bootstrap.php';
+if (!is_installed()) redirect('install.php');
+
+$s = settings();
+$on = fn(string $k) => ($s[$k] ?? '1') === '1';
+
+$skills       = fetch_rows('skills');
+$services     = $on('show_services') ? fetch_rows('services') : [];
+$projects     = $on('show_projects') ? fetch_rows('projects') : [];
+$gallery      = $on('show_gallery') ? fetch_rows('gallery') : [];
+$experiences  = $on('show_experience') ? fetch_rows('experiences') : [];
+$testimonials = $on('show_testimonials') ? fetch_rows('testimonials') : [];
+$socials      = fetch_rows('socials');
+
+$featured = array_values(array_filter($projects, fn($p) => (int) $p['is_featured'] === 1));
+$extra    = array_values(array_filter($projects, fn($p) => (int) $p['is_featured'] !== 1));
+if (!$featured) { $featured = $projects; $extra = []; }
+
+$name = setting('owner_name', 'Your Name');
+$logo = setting('logo_text', 'PORTFOLIO');
+$heroImg = setting('hero_image') ? url($s['hero_image']) : 'assets/img/portrait-placeholder.svg';
+$aboutImg = setting('about_image') ? url($s['about_image']) : 'assets/img/about-placeholder.svg';
+$metaTitle = setting('meta_title', $name . ' | Portfolio');
+$metaDesc = setting('meta_description');
+$scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+$siteUrl = $scheme . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\') . '/';
+
+// Section numbering follows which sections are shown
+$sections = ['about' => 'About Me', 'skills' => 'Skills & Stack'];
+if ($services) $sections['services'] = 'Services';
+if ($projects) $sections['projects'] = 'Featured Projects';
+if ($gallery) $sections['gallery'] = 'Photo, Video & Drone';
+if ($experiences) $sections['experience'] = 'Experience';
+if ($testimonials) $sections['testimonials'] = 'Testimonials';
+$sections['contact'] = 'Get In Touch';
+$num = array_combine(array_keys($sections), array_map(fn($i) => str_pad((string) ($i + 1), 2, '0', STR_PAD_LEFT), array_keys(array_keys($sections))));
+
+$label = function (string $key) use ($sections, $num) {
+    return '<div class="sec-label"><span class="sec-num">' . $num[$key] . '</span>' . e($sections[$key]) . '</div>';
+};
+
+$navItems = ['home' => 'Home', 'about' => 'About', 'skills' => 'Skills'];
+if ($services) $navItems['services'] = 'Services';
+if ($projects) $navItems['projects'] = 'Projects';
+if ($gallery) $navItems['gallery'] = 'Gallery';
+if ($experiences) $navItems['experience'] = 'Experience';
+if ($testimonials) $navItems['testimonials'] = 'Testimonials';
+$navItems['contact'] = 'Contact';
+
+$stats = [];
+foreach ([1 => 'fa-solid fa-award', 2 => 'fa-solid fa-briefcase', 3 => 'fa-regular fa-face-smile'] as $i => $icon) {
+    if (setting("stat{$i}_value") !== '') $stats[] = [$icon, $s["stat{$i}_value"], $s["stat{$i}_label"] ?? ''];
+}
+$flashes = take_flashes();
+$roles = split_lines(setting('hero_roles'));
+
+// Gallery: work out what each tile shows and plays
+$galleryCats = [];
+$albums = [];
+if ($gallery) {
+    $ids = array_map('intval', array_column($gallery, 'id'));
+    $st = db()->prepare('SELECT gallery_id, image FROM gallery_photos WHERE gallery_id IN (' . implode(',', array_fill(0, count($ids), '?')) . ') ORDER BY sort_order, id');
+    $st->execute($ids);
+    foreach ($st as $r) $albums[(int) $r['gallery_id']][] = url($r['image']);
+}
+$linkLabels = ['facebook' => 'View on Facebook', 'youtube' => 'Watch on YouTube', 'vimeo' => 'Watch on Vimeo', 'drive' => 'Open in Google Drive'];
+foreach ($gallery as &$g) {
+    // What plays: an uploaded video file wins over a link
+    $playSrc = !empty($g['video_file']) ? url($g['video_file']) : (string) $g['video_url'];
+    $g['video'] = $playSrc !== '' ? video_info($playSrc) : null;
+    $linkInfo = $g['video_url'] ? video_info($g['video_url']) : null;
+    // Facebook refuses to play this one on other sites: show the cover + "Watch on Facebook" instead of a broken player
+    if (empty($g['video_file']) && ($g['embed_status'] ?? '') === 'blocked' && $g['video']) {
+        $g['video']['kind'] = 'external';
+        $g['video']['src'] = $g['video_url'];
+        $g['video']['inline'] = null;
+    }
+    $g['thumb'] = $g['image'] ? url($g['image']) : ($g['video']['thumb'] ?? '');
+    // Photos to flip through: the cover + the album
+    $g['photos'] = array_values(array_filter(array_merge([$g['image'] ? url($g['image']) : null], $albums[(int) $g['id']] ?? [])));
+    if (!$g['image'] && !empty($g['photos'])) $g['thumb'] = $g['photos'][0];
+    // Photo items with pictures open in the photo viewer (not Facebook's post widget)
+    $g['album'] = $g['media_type'] === 'photo' && $g['photos'];
+    // "View on Facebook" style button in the viewer
+    $g['link'] = ($linkInfo && $linkInfo['kind'] !== 'file') ? $g['video_url'] : '';
+    $g['link_label'] = $linkLabels[$linkInfo['provider'] ?? ''] ?? 'Open original';
+    $g['link_icon'] = provider_icon($linkInfo);
+    // No cover image but an embeddable link: show the real player inside the card
+    $g['live'] = !$g['thumb'] && !empty($g['video']['inline']);
+    if ($g['live'] && $g['video']['vertical'] && $g['layout'] === 'normal') $g['layout'] = 'tall';
+    $galleryCats[$g['category']] = GALLERY_CATEGORIES[$g['category']] ?? ucfirst($g['category']);
+}
+unset($g);
+$galleryCats = array_intersect_key(GALLERY_CATEGORIES, $galleryCats) + $galleryCats;
+$serviceOptions = array_column($services ?: fetch_rows('services'), 'title');
+$footer = str_replace('{year}', date('Y'), setting('footer_text', '© {year} ' . $name . '. All rights reserved.'));
+?>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title><?= e($metaTitle) ?></title>
+<meta name="description" content="<?= e($metaDesc) ?>">
+<meta name="theme-color" content="#0a0a0a">
+<link rel="canonical" href="<?= e($siteUrl) ?>">
+<meta property="og:type" content="website">
+<meta property="og:title" content="<?= e($metaTitle) ?>">
+<meta property="og:description" content="<?= e($metaDesc) ?>">
+<meta property="og:url" content="<?= e($siteUrl) ?>">
+<?php if (setting('og_image')): ?><meta property="og:image" content="<?= e($siteUrl . $s['og_image']) ?>"><?php endif; ?>
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><path d='M16 2l12 7v14l-12 7-12-7V9z' fill='%23f5b335'/></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@400;500;600;700&family=Great+Vibes&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/devicons/devicon@v2.16.0/devicon.min.css">
+<link rel="stylesheet" href="assets/css/style.css?v=<?= filemtime(__DIR__ . '/assets/css/style.css') ?>">
+<script>document.documentElement.classList.add('js')</script>
+<script type="application/ld+json"><?= json_encode(['@context' => 'https://schema.org', '@type' => 'Person', 'name' => $name, 'url' => $siteUrl, 'sameAs' => array_column($socials, 'url')], JSON_UNESCAPED_SLASHES | JSON_HEX_TAG) ?></script>
+</head>
+<body>
+<div class="bg-fx" aria-hidden="true"><span class="glow g1"></span><span class="glow g2"></span></div>
+
+<header class="nav" id="nav">
+  <div class="container nav-inner">
+    <a class="logo" href="#home" aria-label="<?= e($name) ?> - home">
+      <span class="logo-mark"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 2.5 28 9.5v13L16 29.5 4 22.5v-13z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M13 12l-4 4 4 4M19 12l4 4-4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+      <span><?= e($logo) ?></span>
+    </a>
+    <nav class="nav-links" id="navLinks" aria-label="Main">
+      <?php foreach ($navItems as $id => $text): ?>
+        <a href="#<?= $id ?>"<?= $id === 'home' ? ' class="active"' : '' ?>><?= e($text) ?></a>
+      <?php endforeach; ?>
+    </nav>
+    <a href="#contact" class="btn btn-outline btn-sm nav-cta"><?= e(setting('nav_cta', "Let's Talk")) ?> <i class="fa-regular fa-paper-plane"></i></a>
+    <button class="nav-toggle" id="navToggle" aria-label="Open menu" aria-expanded="false" aria-controls="navLinks"><span></span><span></span><span></span></button>
+  </div>
+</header>
+
+<main class="container stack">
+
+  <!-- HERO -->
+  <section id="home" class="card hero">
+    <div class="hero-text reveal">
+      <?php if (setting('hero_badge')): ?><span class="badge"><span class="pulse"></span><?= e($s['hero_badge']) ?></span><?php endif; ?>
+      <h1><?= hl(setting('hero_title', 'I Build Modern Web **Experiences**')) ?></h1>
+      <?php if ($roles): ?>
+        <p class="roles">I'm a <span class="rotator" data-words="<?= e(json_encode($roles, JSON_UNESCAPED_UNICODE)) ?>"><?= e($roles[0]) ?></span><span class="caret" aria-hidden="true"></span>
+          <span class="sr"><?= e(implode(', ', $roles)) ?></span></p>
+      <?php endif; ?>
+      <p class="lead"><?= e(setting('hero_subtitle')) ?></p>
+      <div class="hero-actions">
+        <a href="#contact" class="btn btn-gold">Hire Me <i class="fa-solid fa-arrow-right tilt"></i></a>
+        <?php if ($projects || $gallery): ?><a href="#<?= $projects ? 'projects' : 'gallery' ?>" class="btn btn-outline">View My Work <i class="fa-solid fa-table-cells-large"></i></a><?php endif; ?>
+      </div>
+      <?php if ($socials): ?>
+      <div class="follow">
+        <span>Follow me on</span>
+        <div class="social-row">
+          <?php foreach ($socials as $so): ?>
+            <a href="<?= e($so['url']) ?>" target="_blank" rel="noopener me" aria-label="<?= e($so['platform']) ?>" title="<?= e($so['platform']) ?>"><i class="<?= e($so['icon'] ?: 'fa-solid fa-link') ?>"></i></a>
+          <?php endforeach; ?>
+        </div>
+      </div>
+      <?php endif; ?>
+    </div>
+    <div class="hero-visual reveal" data-delay="1">
+      <span class="streak" aria-hidden="true"></span>
+      <span class="ring" aria-hidden="true"><i></i></span>
+      <div class="float-badges" aria-hidden="true">
+        <span class="fb fb1" title="Web"><i class="fa-solid fa-code"></i></span>
+        <span class="fb fb2" title="Photo"><i class="fa-solid fa-camera"></i></span>
+        <span class="fb fb3" title="Video"><i class="fa-solid fa-video"></i></span>
+        <span class="fb fb4" title="Drone"><i class="icon-drone"></i></span>
+      </div>
+      <img class="hero-img" src="<?= e($heroImg) ?>" alt="Portrait of <?= e($name) ?>" width="560" height="640" fetchpriority="high">
+      <?php if ($stats): ?>
+      <div class="stats glass">
+        <?php foreach ($stats as [$icon, $val, $lbl]): ?>
+          <div class="stat"><div class="stat-top"><i class="<?= e($icon) ?>"></i><b data-count="<?= e($val) ?>"><?= e($val) ?></b></div><span><?= e($lbl) ?></span></div>
+        <?php endforeach; ?>
+      </div>
+      <?php endif; ?>
+    </div>
+  </section>
+
+  <!-- ABOUT + SKILLS -->
+  <div class="split">
+    <section id="about" class="card about reveal">
+      <figure class="about-img">
+        <img src="<?= e($aboutImg) ?>" alt="<?= e($name) ?>" loading="lazy" width="400" height="500">
+        <?php if (setting('about_signature')): ?><figcaption class="signature"><?= e($s['about_signature']) ?></figcaption><?php endif; ?>
+      </figure>
+      <div class="about-body">
+        <?= $label('about') ?>
+        <h2><?= hl(setting('about_title', 'Building solutions with code & **creativity.**')) ?></h2>
+        <p class="muted"><?= hl(setting('about_text')) ?></p>
+        <?php if ($pts = split_lines(setting('about_points'))): ?>
+          <ul class="checks">
+            <?php foreach ($pts as $pt): ?><li><i class="fa-regular fa-circle-check"></i><?= e($pt) ?></li><?php endforeach; ?>
+          </ul>
+        <?php endif; ?>
+        <?php if (setting('cv_file')): ?>
+          <a class="btn btn-outline btn-sm" href="<?= e(url($s['cv_file'])) ?>" download>Download CV <i class="fa-solid fa-download"></i></a>
+        <?php endif; ?>
+      </div>
+    </section>
+
+    <section id="skills" class="card skills reveal" data-delay="1">
+      <?= $label('skills') ?>
+      <div class="skill-grid">
+        <?php foreach ($skills as $sk): ?>
+          <div class="skill" title="<?= e($sk['name']) ?>">
+            <?php if ($sk['icon_image']): ?>
+              <img src="<?= e(url($sk['icon_image'])) ?>" alt="" loading="lazy" width="32" height="32">
+            <?php else: ?>
+              <i class="<?= e($sk['icon_class'] ?: 'fa-solid fa-code') ?>"></i>
+            <?php endif; ?>
+            <span><?= e($sk['name']) ?></span>
+          </div>
+        <?php endforeach; ?>
+      </div>
+      <?php if (setting('skills_note')): ?><div class="note-pill"><i class="fa-solid fa-heart"></i><?= e($s['skills_note']) ?></div><?php endif; ?>
+    </section>
+  </div>
+
+  <?php if ($services): ?>
+  <!-- SERVICES -->
+  <section id="services" class="card section">
+    <?= $label('services') ?>
+    <div class="service-grid">
+      <?php foreach ($services as $i => $sv): ?>
+        <article class="service reveal" data-delay="<?= $i % 4 ?>">
+          <div class="service-head"><span class="ico-box"><i class="<?= e($sv['icon'] ?: 'fa-solid fa-star') ?>"></i></span><h3><?= e($sv['title']) ?></h3></div>
+          <p><?= e($sv['description']) ?></p>
+          <a href="<?= e($sv['link'] ?: '#contact') ?>" class="more">Learn more <i class="fa-solid fa-arrow-right"></i></a>
+        </article>
+      <?php endforeach; ?>
+    </div>
+  </section>
+  <?php endif; ?>
+
+  <?php if ($projects): ?>
+  <!-- PROJECTS -->
+  <section id="projects" class="card section">
+    <div class="sec-head">
+      <?= $label('projects') ?>
+      <?php if ($extra): ?><button class="link-btn" id="viewAll" aria-expanded="false">View all projects <i class="fa-solid fa-arrow-right"></i></button><?php endif; ?>
+    </div>
+    <div class="project-grid">
+      <?php foreach ([...$featured, ...$extra] as $i => $p):
+        $isExtra = $i >= count($featured);
+        $link = $p['live_url'] ?: $p['repo_url']; ?>
+        <article class="project reveal<?= $isExtra ? ' is-extra' : '' ?>" data-delay="<?= $i % 3 ?>"<?= $isExtra ? ' hidden' : '' ?>>
+          <div class="project-thumb">
+            <?php if ($p['image']): ?>
+              <img src="<?= e(url($p['image'])) ?>" alt="<?= e($p['title']) ?> screenshot" loading="lazy" width="640" height="400">
+            <?php else: ?>
+              <div class="thumb-ph" aria-hidden="true"><span></span><span></span><span></span><i class="fa-solid fa-code"></i></div>
+            <?php endif; ?>
+          </div>
+          <div class="project-body">
+            <?php if ($tags = split_tags($p['tags'])): ?><span class="tag"><?= e(implode(' + ', $tags)) ?></span><?php endif; ?>
+            <div class="project-row">
+              <div>
+                <h3><?= e($p['title']) ?></h3>
+                <p><?= e($p['description']) ?></p>
+              </div>
+              <div class="project-links">
+                <?php if ($p['repo_url'] && $p['live_url']): ?><a href="<?= e($p['repo_url']) ?>" class="sq-btn" target="_blank" rel="noopener" aria-label="Source code for <?= e($p['title']) ?>"><i class="fa-brands fa-github"></i></a><?php endif; ?>
+                <?php if ($link): ?><a href="<?= e($link) ?>" class="sq-btn" target="_blank" rel="noopener" aria-label="Open <?= e($p['title']) ?>"><i class="fa-solid fa-arrow-up-right-from-square"></i></a><?php endif; ?>
+              </div>
+            </div>
+          </div>
+        </article>
+      <?php endforeach; ?>
+    </div>
+  </section>
+  <?php endif; ?>
+
+  <?php if ($gallery): ?>
+  <!-- GALLERY: PHOTO / VIDEO / DRONE -->
+  <section id="gallery" class="card section">
+    <div class="sec-head">
+      <?= $label('gallery') ?>
+      <?php if (count($galleryCats) > 1): ?>
+      <div class="filters" role="tablist" aria-label="Filter gallery">
+        <button class="chip active" data-filter="all" role="tab" aria-selected="true">All</button>
+        <?php foreach ($galleryCats as $key => $text): ?>
+          <button class="chip" data-filter="<?= e($key) ?>" role="tab" aria-selected="false"><i class="<?= e(GALLERY_ICONS[$key] ?? 'fa-solid fa-image') ?>"></i> <?= e($text) ?></button>
+        <?php endforeach; ?>
+      </div>
+      <?php endif; ?>
+    </div>
+    <div class="gallery-grid" id="galleryGrid">
+      <?php foreach ($gallery as $i => $g):
+        $v = $g['video'];
+        $catIcon = GALLERY_ICONS[$g['category']] ?? 'fa-solid fa-image'; ?>
+        <div class="g-item g-<?= e($g['layout']) ?><?= $g['live'] ? ' g-live' : '' ?> reveal" data-delay="<?= $i % 4 ?>"
+          data-cat="<?= e($g['category']) ?>"
+          data-title="<?= e($g['title']) ?>"
+          data-caption="<?= e(implode(' · ', array_filter([trim((string) $g['location']), trim((string) $g['description'])], 'strlen'))) ?>"
+          <?php if ($g['link']): ?>data-link="<?= e($g['link']) ?>" data-link-label="<?= e($g['link_label']) ?>" data-link-icon="<?= e($g['link_icon']) ?>"<?php endif; ?>
+          <?php if ($g['thumb']): ?>data-cover="<?= e($g['thumb']) ?>"<?php endif; ?>
+          <?php if ($g['album']): ?>data-kind="photos" data-photos="<?= e(json_encode($g['photos'], JSON_UNESCAPED_SLASHES)) ?>"<?php elseif ($v): ?>data-kind="<?= e($v['kind']) ?>" data-src="<?= e($v['src']) ?>"<?= $v['vertical'] ? ' data-vertical="1"' : '' ?><?= $v['post'] ? ' data-post="1"' : '' ?><?php elseif ($g['thumb']): ?>data-kind="image" data-src="<?= e($g['thumb']) ?>"<?php else: ?>data-kind="none" data-icon="<?= e($catIcon) ?>"<?php endif; ?>>
+          <?php if ($g['live']): ?>
+            <?php if ($v['kind'] === 'file'): ?>
+              <video class="g-embed" src="<?= e($v['inline']) ?>#t=0.5" preload="metadata" controls playsinline></video>
+            <?php else: ?>
+              <iframe class="g-embed" src="<?= e($v['inline']) ?>" title="<?= e($g['title']) ?>" loading="lazy" scrolling="no"
+                allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share; fullscreen" allowfullscreen></iframe>
+            <?php endif; ?>
+            <button type="button" class="g-open g-expand" aria-label="Open <?= e($g['title']) ?> full screen" title="Full screen"><i class="fa-solid fa-expand"></i></button>
+          <?php else: ?>
+            <?php if ($g['thumb']): ?>
+              <img src="<?= e($g['thumb']) ?>" alt="<?= e($g['title']) ?>" loading="lazy">
+            <?php else: ?>
+              <span class="g-ph g-ph-<?= e($g['category']) ?>"><i class="<?= e($catIcon) ?>"></i></span>
+            <?php endif; ?>
+            <?php if (!$g['album'] && $v && $v['kind'] !== 'link' && !$v['post']): ?><span class="play"><i class="fa-solid fa-play"></i></span><?php endif; ?>
+            <?php if (count($g['photos']) > 1): ?><span class="g-count"><i class="fa-regular fa-images"></i> <?= count($g['photos']) ?></span><?php endif; ?>
+            <span class="g-info">
+              <span class="g-cat"><i class="<?= e($v ? provider_icon($v) : $catIcon) ?>"></i> <?= e(GALLERY_CATEGORIES[$g['category']] ?? $g['category']) ?></span>
+              <b><?= e($g['title']) ?></b>
+              <?php if ($g['location']): ?><small><i class="fa-solid fa-location-dot"></i> <?= e($g['location']) ?></small><?php endif; ?>
+            </span>
+            <button type="button" class="g-open" aria-label="Open <?= e($g['title']) ?>"></button>
+          <?php endif; ?>
+        </div>
+      <?php endforeach; ?>
+    </div>
+  </section>
+  <?php endif; ?>
+
+  <?php if ($experiences): ?>
+  <!-- EXPERIENCE -->
+  <section id="experience" class="card section">
+    <?= $label('experience') ?>
+    <ol class="timeline" style="--n: <?= count($experiences) ?>">
+      <?php foreach ($experiences as $i => $x): ?>
+        <li class="tl-item reveal" data-delay="<?= $i % 4 ?>">
+          <span class="tl-dot" aria-hidden="true"></span>
+          <div class="tl-card">
+            <span class="tl-logo"><?php if ($x['logo']): ?><img src="<?= e(url($x['logo'])) ?>" alt="<?= e($x['company']) ?> logo" loading="lazy" width="40" height="40"><?php else: ?><i class="<?= e($x['icon'] ?: 'fa-solid fa-building') ?>"></i><?php endif; ?></span>
+            <div>
+              <h3><?= e($x['role']) ?></h3>
+              <p class="tl-co"><?= e($x['company']) ?></p>
+              <p class="tl-period"><?= e($x['period']) ?></p>
+            </div>
+          </div>
+          <p class="tl-desc"><?= e($x['description']) ?></p>
+        </li>
+      <?php endforeach; ?>
+    </ol>
+  </section>
+  <?php endif; ?>
+
+  <?php if ($testimonials): ?>
+  <!-- TESTIMONIALS -->
+  <section id="testimonials" class="card section">
+    <div class="sec-head">
+      <?= $label('testimonials') ?>
+      <div class="arrows">
+        <button class="arrow" id="tPrev" aria-label="Previous testimonials"><i class="fa-solid fa-chevron-left"></i></button>
+        <button class="arrow" id="tNext" aria-label="Next testimonials"><i class="fa-solid fa-chevron-right"></i></button>
+      </div>
+    </div>
+    <div class="t-track" id="tTrack" tabindex="0" aria-label="Testimonials">
+      <?php foreach ($testimonials as $t): ?>
+        <figure class="testimonial">
+          <i class="fa-solid fa-quote-left q"></i>
+          <blockquote><?= e($t['quote']) ?></blockquote>
+          <figcaption>
+            <?php if ($t['avatar']): ?><img src="<?= e(url($t['avatar'])) ?>" alt="" loading="lazy" width="44" height="44"><?php else: ?><span class="initial"><?= e(mb_strtoupper(mb_substr($t['name'], 0, 1))) ?></span><?php endif; ?>
+            <div><b><?= e($t['name']) ?></b><small><?= e($t['position']) ?></small></div>
+            <span class="stars" aria-label="<?= (int) $t['rating'] ?> out of 5 stars"><?= str_repeat('<i class="fa-solid fa-star"></i>', max(0, min(5, (int) $t['rating']))) ?></span>
+          </figcaption>
+        </figure>
+      <?php endforeach; ?>
+    </div>
+  </section>
+  <?php endif; ?>
+
+  <!-- CONTACT -->
+  <section id="contact" class="card contact">
+    <div class="contact-intro reveal">
+      <?= $label('contact') ?>
+      <h2><?= hl(setting('contact_title', "Let's build something **amazing** together.")) ?></h2>
+      <p class="muted"><?= hl(setting('contact_text')) ?></p>
+    </div>
+    <div class="contact-box reveal" data-delay="1">
+      <form class="contact-form" id="contactForm" action="contact.php" method="post" novalidate>
+        <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
+        <div class="hp" aria-hidden="true"><label>Website <input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
+        <div class="row2">
+          <label class="fl"><span class="sr">Your name</span><input name="name" placeholder="Your Name" required maxlength="100" autocomplete="name"></label>
+          <label class="fl"><span class="sr">Your email</span><input type="email" name="email" placeholder="Your Email" required maxlength="190" autocomplete="email"></label>
+        </div>
+        <div class="row2">
+          <label class="fl"><span class="sr">What do you need?</span>
+            <select name="service">
+              <option value="">What do you need?</option>
+              <?php foreach ($serviceOptions as $opt): ?><option value="<?= e($opt) ?>"><?= e($opt) ?></option><?php endforeach; ?>
+              <option value="Other">Other</option>
+            </select>
+          </label>
+          <label class="fl"><span class="sr">Subject</span><input name="subject" placeholder="Subject" maxlength="150"></label>
+        </div>
+        <label class="fl"><span class="sr">Message</span><textarea name="message" placeholder="Your Message" rows="5" required minlength="10" maxlength="5000"></textarea></label>
+        <div class="form-foot">
+          <button class="btn btn-gold" type="submit"><span>Send Message</span> <i class="fa-regular fa-paper-plane"></i></button>
+          <p class="form-status" id="formStatus" role="status" aria-live="polite">
+            <?php foreach ($flashes as $f): ?><span class="<?= e($f['type']) ?>"><?= e($f['msg']) ?></span><?php endforeach; ?>
+          </p>
+        </div>
+      </form>
+      <ul class="contact-info">
+        <?php
+        $info = [
+            ['fa-regular fa-envelope', 'Email', setting('contact_email'), setting('contact_email') ? 'mailto:' . $s['contact_email'] : ''],
+            ['fa-solid fa-phone', 'Phone', setting('contact_phone'), setting('contact_phone') ? 'tel:' . preg_replace('/[^\d+]/', '', $s['contact_phone']) : ''],
+            ['fa-solid fa-location-dot', 'Location', setting('contact_location'), ''],
+            ['fa-regular fa-clock', 'Availability', setting('contact_availability'), ''],
+        ];
+        foreach ($info as [$icon, $lbl, $val, $href]): if ($val === '') continue; ?>
+          <li><span class="ico-box sm"><i class="<?= $icon ?>"></i></span><div><b><?= $lbl ?></b><?php if ($href): ?><a href="<?= e($href) ?>"><?= e($val) ?></a><?php else: ?><span><?= e($val) ?></span><?php endif; ?></div></li>
+        <?php endforeach; ?>
+      </ul>
+    </div>
+  </section>
+</main>
+
+<footer class="footer">
+  <div class="container footer-inner">
+    <a class="logo" href="#home"><span class="logo-mark"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 2.5 28 9.5v13L16 29.5 4 22.5v-13z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M13 12l-4 4 4 4M19 12l4 4-4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span><?= e($logo) ?></span></a>
+    <p class="muted"><?= e($footer) ?></p>
+    <div class="footer-links">
+      <?php if (setting('privacy_url')): ?><a href="<?= e($s['privacy_url']) ?>">Privacy Policy</a><?php endif; ?>
+      <?php if (setting('terms_url')): ?><a href="<?= e($s['terms_url']) ?>">Terms of Service</a><?php endif; ?>
+      <a href="#home" class="to-top" aria-label="Back to top"><i class="fa-solid fa-arrow-up"></i></a>
+    </div>
+  </div>
+</footer>
+
+<?php if ($gallery): ?>
+<div class="lightbox" id="lightbox" hidden role="dialog" aria-modal="true" aria-label="Media viewer">
+  <button class="lb-btn lb-close" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+  <button class="lb-btn lb-prev" aria-label="Previous"><i class="fa-solid fa-chevron-left"></i></button>
+  <button class="lb-btn lb-next" aria-label="Next"><i class="fa-solid fa-chevron-right"></i></button>
+  <figure class="lb-figure">
+    <div class="lb-stage" id="lbStage"></div>
+    <div class="lb-thumbs" id="lbThumbs" hidden></div>
+    <figcaption class="lb-caption">
+      <b id="lbTitle"></b><span id="lbCaption"></span>
+      <span class="lb-meta"><span class="lb-count" id="lbCount" hidden></span><a class="lb-link" id="lbLink" target="_blank" rel="noopener" hidden></a></span>
+    </figcaption>
+  </figure>
+</div>
+<?php endif; ?>
+
+<script src="assets/js/main.js?v=<?= filemtime(__DIR__ . '/assets/js/main.js') ?>" defer></script>
+</body>
+</html>

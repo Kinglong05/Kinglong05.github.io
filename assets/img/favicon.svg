@@ -1,0 +1,9 @@
+<!-- PLACEHOLDER FAVICON — replace with your logo (square, works best on a solid background) -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <circle cx="60" cy="60" r="58" fill="#0d0d0f"/>
+  <path d="M32 56C32 34 46 26 60 26s28 8 28 30Z" fill="#e63946" stroke="#e63946" stroke-width="4"/>
+  <path d="M88 50l16-8-4 12Z M88 54l14 10H92Z" fill="#e63946" stroke="#e63946" stroke-width="3"/>
+  <path d="M28 57h64" stroke="#f1efe9" stroke-width="5"/>
+  <path d="M48 64v24q0 4 4 4" stroke="#f1efe9" stroke-width="7"/>
+  <path d="M60 72l18 20M78 72L60 92" stroke="#f1efe9" stroke-width="7"/>
+</svg>

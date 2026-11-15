@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Elrich Jie T. Madrileño — Developer & Visual Storyteller | lxrich Visual</title>
+  <meta name="description" content="Portfolio of Elrich Jie T. Madrileño (lxrich Visual): BSIT student, web and AI developer, photographer, videographer and drone pilot from Himamaylan City, Negros Occidental, Philippines.">
+  <meta name="author" content="Elrich Jie T. Madrileño">
+  <meta name="theme-color" content="#0d0d0f">
+
+  <!-- Open Graph / social preview (absolute URLs so Facebook/Messenger can load them) -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Elrich Jie T. Madrileño — Developer by code. Storyteller by lens.">
+  <meta property="og:description" content="Web systems, AI tools, photography, videography and drone work by lxrich Visual.">
+  <meta property="og:image" content="https://kinglong05.github.io/assets/img/og-image.jpg">
+  <meta property="og:url" content="https://kinglong05.github.io/">
+  <meta name="twitter:card" content="summary_large_image">
+
+  <!-- Favicon (from your logo) -->
+  <link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
+
+  <!-- Apply the saved theme before first paint (prevents a flash) -->
+  <script>
+    try { var t = localStorage.getItem('theme'); if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t); } catch (e) {}
+    document.documentElement.classList.add('js');
+  </script>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap">
+  <!-- Tech icons (loaded without blocking render) -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/devicon@2.16.0/devicon.min.css" media="print" onload="this.media='all'">
+
+  <link rel="preload" as="image" href="assets/img/hero.webp" imagesrcset="assets/img/hero-960.webp 960w, assets/img/hero.webp 1920w" imagesizes="100vw" fetchpriority="high">
+
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <!-- ============ PAGE LOADER (logo sketch-draw) ============ -->
+  <div class="loader" id="loader" aria-hidden="true">
+    <svg class="loader__logo" viewBox="0 0 120 120" fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <circle class="draw" pathLength="1" cx="60" cy="60" r="54" stroke="currentColor" stroke-width="3"/>
+      <path class="draw fillable" pathLength="1" d="M32 56C32 34 46 26 60 26s28 8 28 30Z" stroke="var(--accent)" stroke-width="3"/>
+      <path class="draw fillable" pathLength="1" d="M88 50l16-8-4 12Z" stroke="var(--accent)" stroke-width="3"/>
+      <path class="draw fillable" pathLength="1" d="M88 54l14 10H92Z" stroke="var(--accent)" stroke-width="3"/>
+      <path class="draw" pathLength="1" d="M28 57h64" stroke="currentColor" stroke-width="3"/>
+      <path class="draw" pathLength="1" d="M48 64v24q0 4 4 4" stroke="currentColor" stroke-width="5"/>
+      <path class="draw" pathLength="1" d="M60 72l18 20M78 72L60 92" stroke="currentColor" stroke-width="5"/>
+    </svg>
+    <p class="loader__brand">lxrich <span>Visual</span></p>
+  </div>
+
+  <!-- Custom cursor (desktop only, created by JS) -->
+
+  <!-- ============ NAVBAR ============ -->
+  <header class="nav" id="nav">
+    <div class="container nav__inner">
+      <a class="nav__logo" href="#top" aria-label="lxrich Visual — back to top">
+        <img src="assets/img/logo.svg" alt="" width="40" height="40">
+        <span>lxrich<b>.</b></span>
+      </a>
+
+      <nav class="nav__menu" id="nav-menu" aria-label="Main">
+        <ul>
+          <li><a href="#about">About</a></li>
+          <li><a href="#skills">Skills</a></li>
+          <li><a href="#projects">Projects</a></li>
+          <li><a href="#photography">Photography</a></li>
+          <li><a href="#education">Education</a></li>
+          <li><a href="#contact">Contact</a></li>
+        </ul>
+      </nav>
+
+      <div class="nav__actions">
+        <button class="icon-btn theme-toggle" id="theme-toggle" type="button" aria-label="Switch to light theme">
+          <svg class="i-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.5"/><path d="M12 1.5v2.5M12 20v2.5M4.6 4.6l1.8 1.8M17.6 17.6l1.8 1.8M1.5 12H4M20 12h2.5M4.6 19.4l1.8-1.8M17.6 6.4l1.8-1.8"/></svg>
+          <svg class="i-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+        </button>
+        <button class="icon-btn nav__burger" id="nav-burger" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="nav-menu">
+          <span></span><span></span><span></span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main id="main">
+    <!-- ============ HERO ============ -->
+    <section class="hero" id="top" aria-label="Introduction">
+      <!-- TODO: replace assets/img/hero.webp (1920x1080) and hero-960.webp (960x1080, mobile crop) with your drone shot -->
+      <img class="hero__bg" src="assets/img/hero.webp"
+           srcset="assets/img/hero-960.webp 960w, assets/img/hero.webp 1920w"
+           sizes="100vw" alt="" width="1920" height="1080" fetchpriority="high" decoding="async">
+      <div class="hero__overlay"></div>
+
+      <div class="container hero__content">
+        <p class="eyebrow hero__eyebrow"><span class="dot"></span> Himamaylan City, PH · Available for projects &amp; shoots</p>
+        <h1 class="hero__title">
+          <span class="line"><span>Elrich Jie T.</span></span>
+          <span class="line"><span class="accent-text">Madrileño</span></span>
+        </h1>
+        <p class="hero__roles" aria-label="Web Developer, AI Enthusiast, Photographer, Drone Pilot, Filmmaker">
+          <span class="hero__roles-prefix" aria-hidden="true">&gt;</span>
+          <span id="typed" aria-hidden="true"></span><span class="caret" aria-hidden="true"></span>
+        </p>
+        <p class="hero__tagline">Developer by code. <em>Storyteller by lens.</em></p>
+        <div class="hero__cta">
+          <a class="btn btn--primary" href="#projects">View My Work
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+          <a class="btn btn--ghost" href="assets/resume.pdf" download>Download Resume
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M4 21h16"/></svg></a>
+        </div>
+      </div>
+
+      <a class="scroll-indicator" href="#about" aria-label="Scroll to About section">
+        <span class="scroll-indicator__mouse"><span></span></span>
+        <span class="scroll-indicator__text">Scroll</span>
+      </a>
+    </section>
+
+    <!-- ============ ABOUT ============ -->
+    <section class="section" id="about" aria-labelledby="about-title">
+      <div class="container about">
+        <div class="about__media reveal">
+          <!-- TODO: replace with your photo (assets/img/profile.webp, 700x875) -->
+          <img src="assets/img/profile.webp" alt="Portrait of Elrich Jie T. Madrileño" width="700" height="875" loading="lazy" decoding="async">
+          <span class="about__badge">📷 lxrich Visual</span>
+        </div>
+        <div class="about__body">
+          <p class="eyebrow reveal">01 — About me</p>
+          <h2 class="section-title reveal" id="about-title">I write code and tell stories with a camera.</h2>
+          <p class="lead reveal">I'm a fourth-year BSIT student at West Visayas State University – Himamaylan City Campus. I build web systems and AI tools, and I also work as a freelance photographer, videographer and drone pilot.</p>
+          <p class="reveal">I like combining technology and visual storytelling, from training AI models on drone imagery to writing and directing short films.</p>
+          <ul class="chips reveal" aria-label="Quick facts">
+            <li>📍 Himamaylan City</li>
+            <li>🎓 BSIT 4th Year</li>
+            <li>📷 Nikon D3500 shooter</li>
+            <li>🚁 Drone pilot</li>
+            <li>🎬 Filmmaker</li>
+          </ul>
+          <dl class="stats" id="stats"><!-- filled from data.js --></dl>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ SKILLS ============ -->
+    <section class="section section--alt" id="skills" aria-labelledby="skills-title">
+      <div class="container">
+        <header class="section-head">
+          <p class="eyebrow reveal">02 — Skills</p>
+          <h2 class="section-title reveal" id="skills-title">My toolkit</h2>
+        </header>
+        <div class="tabs reveal" role="tablist" aria-label="Skill categories" id="skill-tabs"></div>
+        <div id="skill-panels"></div>
+      </div>
+    </section>
+
+    <!-- ============ PROJECTS ============ -->
+    <section class="section" id="projects" aria-labelledby="projects-title">
+      <div class="container">
+        <header class="section-head section-head--row">
+          <div>
+            <p class="eyebrow reveal">03 — Projects</p>
+            <h2 class="section-title reveal" id="projects-title">Selected work</h2>
+          </div>
+          <div class="filters reveal" role="group" aria-label="Filter projects" id="project-filters">
+            <button type="button" class="filter is-active" data-filter="all" aria-pressed="true">All</button>
+            <button type="button" class="filter" data-filter="web" aria-pressed="false">Web</button>
+            <button type="button" class="filter" data-filter="ai" aria-pressed="false">AI</button>
+            <button type="button" class="filter" data-filter="desktop" aria-pressed="false">Desktop</button>
+            <button type="button" class="filter" data-filter="creative" aria-pressed="false">Creative</button>
+          </div>
+        </header>
+        <div class="projects-grid" id="projects-grid"></div>
+      </div>
+    </section>
+
+    <!-- ============ PHOTOGRAPHY & VIDEO ============ -->
+    <section class="section section--alt" id="photography" aria-labelledby="photo-title">
+      <div class="container">
+        <header class="section-head">
+          <p class="eyebrow reveal">04 — Photography &amp; Videography</p>
+          <h2 class="section-title reveal" id="photo-title">Through the lens</h2>
+          <p class="muted reveal">Shot on Nikon D3500 + 18–140mm and DJI Mini 3.
+            <a class="link" href="https://www.instagram.com/lxrich" target="_blank" rel="noopener">More on Instagram @lxrich ↗</a></p>
+        </header>
+
+        <h3 class="sub-title reveal">Favorite frames</h3>
+        <div class="favs reveal" id="favs" tabindex="0" aria-label="Favorite frames, scroll horizontally"></div>
+
+        <div class="filters filters--gallery reveal" role="group" aria-label="Filter gallery" id="gallery-filters">
+          <button type="button" class="filter is-active" data-filter="all" aria-pressed="true">All</button>
+          <button type="button" class="filter" data-filter="portraits" aria-pressed="false">Portraits</button>
+          <button type="button" class="filter" data-filter="kids" aria-pressed="false">Kids &amp; Birthdays</button>
+          <button type="button" class="filter" data-filter="drone" aria-pressed="false">Drone / Aerial</button>
+          <button type="button" class="filter" data-filter="events" aria-pressed="false">Events</button>
+          <button type="button" class="filter" data-filter="video" aria-pressed="false">Video</button>
+        </div>
+        <div class="gallery" id="gallery"></div>
+      </div>
+    </section>
+
+    <!-- ============ EDUCATION & EXPERIENCE ============ -->
+    <section class="section" id="education" aria-labelledby="edu-title">
+      <div class="container">
+        <header class="section-head">
+          <p class="eyebrow reveal">05 — Education &amp; Experience</p>
+          <h2 class="section-title reveal" id="edu-title">The journey so far</h2>
+        </header>
+        <ol class="timeline" id="timeline"></ol>
+
+        <h3 class="sub-title sub-title--spaced reveal">Certifications &amp; achievements</h3>
+        <div class="certs" id="certs"></div>
+      </div>
+    </section>
+
+    <!-- ============ CONTACT ============ -->
+    <section class="section section--alt" id="contact" aria-labelledby="contact-title">
+      <div class="container contact">
+        <div class="contact__info">
+          <p class="eyebrow reveal">06 — Contact</p>
+          <h2 class="section-title reveal" id="contact-title">Let's build something or shoot something together.</h2>
+          <p class="muted reveal">Got a web system, an AI idea, a photoshoot or a drone job? Send me a message and I'll reply as soon as I can.</p>
+          <ul class="contact__list reveal" id="contact-list"></ul>
+          <ul class="socials reveal" id="socials" aria-label="Social media"></ul>
+        </div>
+
+        <form class="form reveal" id="contact-form" novalidate>
+          <div class="field">
+            <label for="f-name">Name</label>
+            <input id="f-name" name="name" type="text" autocomplete="name" required minlength="2" aria-describedby="e-name">
+            <p class="field__error" id="e-name" aria-live="polite"></p>
+          </div>
+          <div class="field">
+            <label for="f-email">Email</label>
+            <input id="f-email" name="email" type="email" autocomplete="email" required aria-describedby="e-email">
+            <p class="field__error" id="e-email" aria-live="polite"></p>
+          </div>
+          <div class="field">
+            <label for="f-subject">Subject</label>
+            <input id="f-subject" name="subject" type="text" required minlength="3" aria-describedby="e-subject">
+            <p class="field__error" id="e-subject" aria-live="polite"></p>
+          </div>
+          <div class="field">
+            <label for="f-message">Message</label>
+            <textarea id="f-message" name="message" rows="5" required minlength="10" aria-describedby="e-message"></textarea>
+            <p class="field__error" id="e-message" aria-live="polite"></p>
+          </div>
+          <!-- honeypot (spam trap, hidden from people) -->
+          <input type="text" name="_gotcha" class="hp" tabindex="-1" autocomplete="off" aria-hidden="true">
+          <button class="btn btn--primary btn--block" type="submit">
+            <span class="btn__label">Send Message</span>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+          </button>
+        </form>
+      </div>
+    </section>
+  </main>
+
+  <!-- ============ FOOTER ============ -->
+  <footer class="footer">
+    <div class="container footer__inner">
+      <a class="nav__logo" href="#top" aria-label="Back to top">
+        <img src="assets/img/logo.svg" alt="" width="40" height="40" loading="lazy">
+        <span>lxrich<b>.</b></span>
+      </a>
+      <nav aria-label="Footer">
+        <ul class="footer__links">
+          <li><a href="#about">About</a></li>
+          <li><a href="#skills">Skills</a></li>
+          <li><a href="#projects">Projects</a></li>
+          <li><a href="#photography">Photography</a></li>
+          <li><a href="#education">Education</a></li>
+          <li><a href="#contact">Contact</a></li>
+        </ul>
+      </nav>
+      <button class="icon-btn to-top" id="to-top" type="button" aria-label="Back to top">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6"/></svg>
+      </button>
+      <p class="footer__copy">© <span id="year">2026</span> Elrich Jie T. Madrileño — lxrich Visual</p>
+    </div>
+  </footer>
+
+  <!-- ============ PROJECT MODAL ============ -->
+  <dialog class="modal" id="project-modal" aria-labelledby="pm-title">
+    <div class="modal__inner">
+      <button class="icon-btn modal__close" type="button" data-close aria-label="Close project details">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+      </button>
+      <div id="pm-content"></div>
+    </div>
+  </dialog>
+
+  <!-- ============ LIGHTBOX ============ -->
+  <dialog class="lightbox" id="lightbox" aria-label="Media viewer">
+    <button class="icon-btn lightbox__close" type="button" data-close aria-label="Close viewer">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+    </button>
+    <button class="icon-btn lightbox__nav lightbox__prev" type="button" aria-label="Previous">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+    </button>
+    <figure class="lightbox__figure">
+      <div class="lightbox__media" id="lb-media"></div>
+      <figcaption class="lightbox__caption"><span id="lb-caption"></span><span class="lightbox__count" id="lb-count"></span></figcaption>
+    </figure>
+    <button class="icon-btn lightbox__nav lightbox__next" type="button" aria-label="Next">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg>
+    </button>
+  </dialog>
+
+  <!-- Toast notifications -->
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <noscript><p class="noscript">Turn on JavaScript to see projects, the gallery and the timeline.</p></noscript>
+
+  <script src="js/data.js" defer></script>
+  <script src="js/preview.js" defer></script>
+  <script src="js/main.js" defer></script>
+</body>
+</html>

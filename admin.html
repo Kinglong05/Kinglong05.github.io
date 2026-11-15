@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Admin · lxrich Visual</title>
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
+  <script>
+    try { var t = localStorage.getItem('theme'); if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t); } catch (e) {}
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/devicon@2.16.0/devicon.min.css">
+  <link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="index.html" title="View site">
+      <img src="assets/img/logo.svg" alt="" width="28" height="28">
+      <span>Admin</span>
+    </a>
+    <button class="conn" id="connBtn" type="button" title="Where your changes are saved">
+      <span class="conn-dot"></span><span id="connLabel">Not connected</span>
+    </button>
+    <span class="status" id="status" role="status" aria-live="polite">All changes saved</span>
+    <div class="top-actions">
+      <button class="btn btn-ghost" id="discardBtn" type="button" hidden>Discard</button>
+      <button class="btn btn-ghost" id="previewBtn" type="button">Preview</button>
+      <button class="btn btn-primary" id="saveBtn" type="button">Save</button>
+    </div>
+  </header>
+
+  <div class="shell">
+    <nav class="sidebar" id="sidebar" aria-label="Sections"></nav>
+    <main class="editor" id="editor" tabindex="-1"></main>
+  </div>
+
+  <!-- Connection dialog -->
+  <dialog class="modal" id="connDialog">
+    <form method="dialog" class="modal-inner">
+      <header class="modal-head">
+        <h2>Where should Save go?</h2>
+        <button class="icon-btn" value="close" aria-label="Close">✕</button>
+      </header>
+
+      <section class="opt">
+        <h3>💻 This computer's PORTFOLIO folder</h3>
+        <p>Best while you work in VS Code. Save writes <code>js/data.js</code> and any uploaded images straight into your project folder. Then push with Git as usual. Works in Chrome or Edge.</p>
+        <div class="row">
+          <button class="btn" type="button" id="pickFolderBtn">Choose PORTFOLIO folder</button>
+          <span class="hint" id="folderState"></span>
+        </div>
+      </section>
+
+      <section class="opt">
+        <h3>🌐 GitHub (publish from anywhere, even your phone)</h3>
+        <p>Save makes one commit to your repo, and GitHub Pages updates the live site in about a minute. You need a <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">fine-grained token</a> limited to your portfolio repo with <b>Contents: Read and write</b>. It stays in this browser only.</p>
+        <div class="grid2">
+          <label>Username / owner<input id="ghOwner" autocomplete="off" placeholder="lxrich"></label>
+          <label>Repository<input id="ghRepo" autocomplete="off" placeholder="lxrich.github.io"></label>
+          <label>Branch<input id="ghBranch" autocomplete="off" placeholder="main"></label>
+          <label>Token<input id="ghToken" type="password" autocomplete="off" placeholder="github_pat_…"></label>
+        </div>
+        <div class="row">
+          <button class="btn" type="button" id="ghConnectBtn">Connect GitHub</button>
+          <span class="hint" id="ghState"></span>
+        </div>
+      </section>
+
+      <section class="opt">
+        <h3>⬇️ Neither</h3>
+        <p>Save downloads a new <code>data.js</code> (and any new images). Put them in <code>js/</code> and <code>assets/…</code> yourself.</p>
+        <div class="row"><button class="btn" type="button" id="useDownloadBtn">Use downloads</button></div>
+      </section>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <noscript><p style="padding:2rem">The admin needs JavaScript.</p></noscript>
+  <script src="js/data.js"></script>
+  <script src="js/admin.js"></script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+# Secrets & local state
+config/config.php
+config/installed.lock
+
+# User uploads (keep the folder + its .htaccess)
+uploads/*
+!uploads/.htaccess
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
