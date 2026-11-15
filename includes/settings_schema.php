@@ -61,6 +61,18 @@ return [
                 'help' => 'GitHub Pages can\'t run PHP, so the published site sends the contact form through <a href="https://formspree.io" target="_blank" rel="noopener">Formspree</a> (free). Create a form there and paste the ID from its URL, e.g. <code>xyzabcd</code> from formspree.io/f/<b>xyzabcd</b>. Leave empty to open the visitor\'s email app instead. Then click Publish.'],
         ],
     ],
+    'analytics' => [
+        'label' => 'Visitor Stats', 'icon' => 'fa-solid fa-chart-line',
+        'fields' => [
+            'ga4_id' => ['type' => 'text', 'label' => 'Google Analytics 4 Measurement ID', 'max' => 20,
+                'help' => 'Looks like <code>G-ABC123XYZ9</code>. Free at <a href="https://analytics.google.com" target="_blank" rel="noopener">analytics.google.com</a> → Admin → Data streams → Web. Gives a live (Realtime) view, countries/cities, devices, browsers and where visitors came from. Click Publish after saving.'],
+            'goatcounter_code' => ['type' => 'text', 'label' => 'GoatCounter code (optional, simpler & cookie-free)', 'max' => 50,
+                'help' => 'If you sign up at <a href="https://www.goatcounter.com" target="_blank" rel="noopener">goatcounter.com</a> as <code>elrich</code>, enter <code>elrich</code>. You can use it instead of, or together with, Google Analytics.'],
+            'stats_url' => ['type' => 'url', 'label' => 'Link to your stats dashboard',
+                'help' => 'Optional. Adds a "Visitor stats" button to your admin dashboard, e.g. your Google Analytics or GoatCounter page.'],
+            'analytics_notice' => ['type' => 'checkbox', 'label' => 'Show "This site counts visits anonymously" in the footer (recommended for privacy)'],
+        ],
+    ],
     'seo' => [
         'label' => 'SEO & Sharing', 'icon' => 'fa-solid fa-magnifying-glass',
         'fields' => [

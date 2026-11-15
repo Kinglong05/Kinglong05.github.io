@@ -3,6 +3,25 @@
   const $$ = (s, c = document) => [...c.querySelectorAll(s)];
   const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+  /* ---- Visitor stats: record what visitors do (only if GA4 / GoatCounter is turned on) ---- */
+  const trackEvent = (name, label = '') => {
+    try {
+      if (typeof window.gtag === 'function') window.gtag('event', name, label ? { item_name: label } : {});
+      if (window.goatcounter && typeof window.goatcounter.count === 'function') {
+        window.goatcounter.count({ path: name + (label ? '/' + label : ''), title: label || name, event: true });
+      }
+    } catch { /* stats must never break the site */ }
+  };
+  document.addEventListener('click', e => {
+    const a = e.target.closest('a');
+    if (!a) return;
+    if (a.hasAttribute('download')) trackEvent('cv_download');
+    else if (a.classList.contains('lb-link')) trackEvent('view_original', $('#lbTitle')?.textContent || '');
+    else if (a.closest('.social-row')) trackEvent('social_click', a.getAttribute('aria-label') || a.href);
+    else if (/^(mailto|tel):/.test(a.getAttribute('href') || '')) trackEvent('contact_click', a.getAttribute('href').split(':')[0]);
+    else if (a.classList.contains('btn-gold') && a.hash === '#contact') trackEvent('hire_me_click');
+  });
+
   /* ---- Navbar: mobile toggle, scrolled state, back-to-top ---- */
   const nav = $('#nav');
   const toggle = $('#navToggle');
@@ -238,6 +257,7 @@
       $('.lb-next', lb).hidden = !multi;
     };
     const open = item => {
+      trackEvent('gallery_open', item.dataset.title || '');
       list = $$('.g-item:not(.is-off)', grid);
       idx = Math.max(0, list.indexOf(item));
       p = 0;
@@ -325,6 +345,7 @@
         if (!to) { setStatus('error', 'The contact form is not set up yet.'); return; }
         const subject = [f.service?.value, f.subject?.value].filter(Boolean).join(' – ') || 'Hello from your portfolio';
         const body = `${f.message.value}\n\n— ${f.name.value} (${f.email.value})`;
+        trackEvent('contact_sent', 'email app');
         location.href = `mailto:${to}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
         setStatus('success', `Opening your email app… If nothing happens, email ${to} directly.`);
         return;
@@ -341,7 +362,7 @@
           || (Array.isArray(data.errors) && data.errors.map(x => x.message).join(' '))
           || (data.ok ? "Thanks! Your message has been sent. I'll get back to you soon." : 'Something went wrong. Please try again.');
         setStatus(data.ok ? 'success' : 'error', msg);
-        if (data.ok) form.reset();
+        if (data.ok) { trackEvent('contact_sent', form.elements.service?.value || ''); form.reset(); }
       } catch {
         setStatus('error', 'Network error. Please check your connection and try again.');
       } finally {

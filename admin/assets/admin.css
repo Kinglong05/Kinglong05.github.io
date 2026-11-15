@@ -292,3 +292,6 @@ details summary { cursor: pointer; margin: 10px 0; }
 /* Unpublished changes reminder */
 .alert.unpublished { align-items: center; }
 .alert.unpublished .btn { flex: none; }
+
+/* Info banner (stays visible) */
+.alert-info { background: rgba(96,165,250,.08); border-color: rgba(96,165,250,.3); color: #bfdbfe; }

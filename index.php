@@ -121,6 +121,15 @@ $footer = str_replace('{year}', date('Y'), setting('footer_text', '© {year} ' .
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/devicons/devicon@v2.16.0/devicon.min.css">
 <link rel="stylesheet" href="assets/css/style.css?v=<?= filemtime(__DIR__ . '/assets/css/style.css') ?>">
 <script>document.documentElement.classList.add('js')</script>
+<?php $ga4 = strtoupper(trim(setting('ga4_id'))); if (preg_match('/^G-[A-Z0-9]{4,16}$/', $ga4)): ?>
+<!-- Google Analytics 4: visitor stats (Admin > Settings > Visitor Stats) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=<?= e($ga4) ?>"></script>
+<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','<?= e($ga4) ?>');</script>
+<?php endif; ?>
+<?php $gc = strtolower(trim(setting('goatcounter_code'))); if (preg_match('/^[a-z0-9-]{2,50}$/', $gc)): ?>
+<!-- GoatCounter: cookie-free visitor stats -->
+<script data-goatcounter="https://<?= e($gc) ?>.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
+<?php endif; ?>
 <script type="application/ld+json"><?= json_encode(['@context' => 'https://schema.org', '@type' => 'Person', 'name' => $name, 'url' => $siteUrl, 'sameAs' => array_column($socials, 'url')], JSON_UNESCAPED_SLASHES | JSON_HEX_TAG) ?></script>
 </head>
 <body>
@@ -438,7 +447,7 @@ $footer = str_replace('{year}', date('Y'), setting('footer_text', '© {year} ' .
 <footer class="footer">
   <div class="container footer-inner">
     <a class="logo" href="#home"><span class="logo-mark"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 2.5 28 9.5v13L16 29.5 4 22.5v-13z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M13 12l-4 4 4 4M19 12l4 4-4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span><?= e($logo) ?></span></a>
-    <p class="muted"><?= e($footer) ?></p>
+    <p class="muted"><?= e($footer) ?><?php if (setting('analytics_notice') === '1' && (setting('ga4_id') !== '' || setting('goatcounter_code') !== '')): ?><br><small>This site counts visits anonymously (country, device and browser), never names.</small><?php endif; ?></p>
     <div class="footer-links">
       <?php if (setting('privacy_url')): ?><a href="<?= e($s['privacy_url']) ?>">Privacy Policy</a><?php endif; ?>
       <?php if (setting('terms_url')): ?><a href="<?= e($s['terms_url']) ?>">Terms of Service</a><?php endif; ?>

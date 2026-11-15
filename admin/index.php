@@ -52,6 +52,16 @@ admin_header('Dashboard', 'dashboard');
 </div>
 <?php endif; ?>
 
+<?php if (!empty($s['stats_url'])): ?>
+<div class="alert alert-info notice"><i class="fa-solid fa-chart-line"></i>
+  <span><b>Visitor stats:</b> see live visitors, countries, devices and where they came from.</span>
+  <a class="btn btn-sm btn-gold" href="<?= e($s['stats_url']) ?>" target="_blank" rel="noopener">Open visitor stats <i class="fa-solid fa-arrow-up-right-from-square"></i></a>
+</div>
+<?php elseif (empty($s['ga4_id']) && empty($s['goatcounter_code'])): ?>
+<div class="alert alert-warn notice"><i class="fa-solid fa-chart-line"></i>
+  <span><b>Want to see who visits?</b> Turn on free visitor stats in <a href="settings.php?tab=analytics">Settings → Visitor Stats</a>.</span>
+</div>
+<?php endif; ?>
 <div class="stat-grid">
   <a class="stat" href="messages.php?filter=unread"><span class="stat-ico"><i class="fa-solid fa-envelope"></i></span><div><b><?= $unread ?></b><small>Unread messages</small></div></a>
   <a class="stat" href="messages.php"><span class="stat-ico"><i class="fa-solid fa-inbox"></i></span><div><b><?= $totalMsgs ?></b><small>Total messages · <?= $weekMsgs ?> this week</small></div></a>
