@@ -13,6 +13,24 @@ $gallery      = $on('show_gallery') ? fetch_rows('gallery') : [];
 $experiences  = $on('show_experience') ? fetch_rows('experiences') : [];
 $testimonials = $on('show_testimonials') ? fetch_rows('testimonials') : [];
 $socials      = fetch_rows('socials');
+$packages     = $on('show_packages') ? fetch_rows('packages') : [];
+$comparisons  = $on('show_comparisons') ? array_values(array_filter(fetch_rows('comparisons'), fn($c) => $c['before_image'] && $c['after_image'])) : [];
+$certificates = $on('show_certificates') ? fetch_rows('certificates') : [];
+$gear         = $on('show_gear') ? fetch_rows('gear') : [];
+$posts        = $on('show_posts') ? db()->query('SELECT * FROM posts WHERE is_visible = 1 ORDER BY published_on DESC, id DESC LIMIT 6')->fetchAll() : [];
+
+// Showreel (hero button)
+$reelSrc = setting('showreel_file') ? url($s['showreel_file']) : setting('showreel_url');
+$reel = $reelSrc ? video_info($reelSrc) : null;
+
+// Instagram follow strip: username from settings, or from the Instagram social link
+$igHandle = ltrim(trim(setting('instagram_handle')), '@');
+if ($igHandle === '') {
+    foreach ($socials as $so) {
+        if (preg_match('~instagram\.com/([A-Za-z0-9._]+)~i', $so['url'], $m)) { $igHandle = $m[1]; break; }
+    }
+}
+if (!$on('show_instagram')) $igHandle = '';
 
 $featured = array_values(array_filter($projects, fn($p) => (int) $p['is_featured'] === 1));
 $extra    = array_values(array_filter($projects, fn($p) => (int) $p['is_featured'] !== 1));
@@ -30,23 +48,31 @@ $siteUrl = $scheme . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . rtrim(dirn
 // Section numbering follows which sections are shown
 $sections = ['about' => 'About Me', 'skills' => 'Skills & Stack'];
 if ($services) $sections['services'] = 'Services';
+if ($packages) $sections['packages'] = 'Packages & Prices';
 if ($projects) $sections['projects'] = 'Featured Projects';
 if ($gallery) $sections['gallery'] = 'Photo, Video & Drone';
+if ($comparisons) $sections['before-after'] = 'Before & After';
 if ($experiences) $sections['experience'] = 'Experience';
+if ($certificates) $sections['certificates'] = 'Certificates & Awards';
+if ($gear) $sections['gear'] = 'Gear I Use';
 if ($testimonials) $sections['testimonials'] = 'Testimonials';
+if ($posts) $sections['stories'] = 'Stories';
 $sections['contact'] = 'Get In Touch';
 $num = array_combine(array_keys($sections), array_map(fn($i) => str_pad((string) ($i + 1), 2, '0', STR_PAD_LEFT), array_keys(array_keys($sections))));
 
 $label = function (string $key) use ($sections, $num) {
-    return '<div class="sec-label"><span class="sec-num">' . $num[$key] . '</span>' . e($sections[$key]) . '</div>';
+    return '<div class="sec-label"><span class="sec-num">' . $num[$key] . '</span><span data-i18n="sec.' . e($key) . '">' . e($sections[$key]) . '</span></div>';
 };
 
-$navItems = ['home' => 'Home', 'about' => 'About', 'skills' => 'Skills'];
+// Main menu: kept short so it fits; Skills sits next to About, Certificates/Gear near Experience
+$navItems = ['home' => 'Home', 'about' => 'About'];
 if ($services) $navItems['services'] = 'Services';
+if ($packages) $navItems['packages'] = 'Pricing';
 if ($projects) $navItems['projects'] = 'Projects';
 if ($gallery) $navItems['gallery'] = 'Gallery';
 if ($experiences) $navItems['experience'] = 'Experience';
-if ($testimonials) $navItems['testimonials'] = 'Testimonials';
+if ($testimonials) $navItems['testimonials'] = 'Reviews';
+if ($posts) $navItems['stories'] = 'Stories';
 $navItems['contact'] = 'Contact';
 
 $stats = [];
@@ -95,6 +121,7 @@ foreach ($gallery as &$g) {
 }
 unset($g);
 $galleryCats = array_intersect_key(GALLERY_CATEGORIES, $galleryCats) + $galleryCats;
+$igPhotos = array_slice(array_values(array_filter(array_column($gallery, 'thumb'), fn($t) => $t && !str_contains($t, 'ytimg'))), 0, 6);
 $serviceOptions = array_column($services ?: fetch_rows('services'), 'title');
 $footer = str_replace('{year}', date('Y'), setting('footer_text', '© {year} ' . $name . '. All rights reserved.'));
 ?>
@@ -120,7 +147,7 @@ $footer = str_replace('{year}', date('Y'), setting('footer_text', '© {year} ' .
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/devicons/devicon@v2.16.0/devicon.min.css">
 <link rel="stylesheet" href="assets/css/style.css?v=<?= filemtime(__DIR__ . '/assets/css/style.css') ?>">
-<script>document.documentElement.classList.add('js')</script>
+<script>(function(d){d.classList.add('js');try{if(localStorage.getItem('theme')==='light')d.setAttribute('data-theme','light')}catch(e){}})(document.documentElement)</script>
 <?php $ga4 = strtoupper(trim(setting('ga4_id'))); if (preg_match('/^G-[A-Z0-9]{4,16}$/', $ga4)): ?>
 <!-- Google Analytics 4: visitor stats (Admin > Settings > Visitor Stats) -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=<?= e($ga4) ?>"></script>
@@ -144,10 +171,14 @@ $footer = str_replace('{year}', date('Y'), setting('footer_text', '© {year} ' .
     </a>
     <nav class="nav-links" id="navLinks" aria-label="Main">
       <?php foreach ($navItems as $id => $text): ?>
-        <a href="#<?= $id ?>"<?= $id === 'home' ? ' class="active"' : '' ?>><?= e($text) ?></a>
+        <a href="#<?= $id ?>"<?= $id === 'home' ? ' class="active"' : '' ?> data-i18n="nav.<?= $id ?>"><?= e($text) ?></a>
       <?php endforeach; ?>
     </nav>
-    <a href="#contact" class="btn btn-outline btn-sm nav-cta"><?= e(setting('nav_cta', "Let's Talk")) ?> <i class="fa-regular fa-paper-plane"></i></a>
+    <div class="nav-tools">
+      <?php if ($on('show_lang_toggle')): ?><button type="button" class="tool-btn lang-btn" id="langToggle" aria-label="Switch language to Filipino" title="English / Filipino">FIL</button><?php endif; ?>
+      <?php if ($on('show_theme_toggle')): ?><button type="button" class="tool-btn" id="themeToggle" aria-label="Switch to light mode" title="Light / dark mode"><i class="fa-solid fa-sun"></i></button><?php endif; ?>
+    </div>
+    <a href="#contact" class="btn btn-outline btn-sm nav-cta"><span data-i18n="nav.cta"><?= e(setting('nav_cta', "Let's Talk")) ?></span> <i class="fa-regular fa-paper-plane"></i></a>
     <button class="nav-toggle" id="navToggle" aria-label="Open menu" aria-expanded="false" aria-controls="navLinks"><span></span><span></span><span></span></button>
   </div>
 </header>
@@ -160,17 +191,24 @@ $footer = str_replace('{year}', date('Y'), setting('footer_text', '© {year} ' .
       <?php if (setting('hero_badge')): ?><span class="badge"><span class="pulse"></span><?= e($s['hero_badge']) ?></span><?php endif; ?>
       <h1><?= hl(setting('hero_title', 'I Build Modern Web **Experiences**')) ?></h1>
       <?php if ($roles): ?>
-        <p class="roles">I'm a <span class="rotator" data-words="<?= e(json_encode($roles, JSON_UNESCAPED_UNICODE)) ?>"><?= e($roles[0]) ?></span><span class="caret" aria-hidden="true"></span>
+        <p class="roles"><span data-i18n="hero.im">I'm a</span> <span class="rotator" data-words="<?= e(json_encode($roles, JSON_UNESCAPED_UNICODE)) ?>"><?= e($roles[0]) ?></span><span class="caret" aria-hidden="true"></span>
           <span class="sr"><?= e(implode(', ', $roles)) ?></span></p>
       <?php endif; ?>
       <p class="lead"><?= e(setting('hero_subtitle')) ?></p>
       <div class="hero-actions">
-        <a href="#contact" class="btn btn-gold">Hire Me <i class="fa-solid fa-arrow-right tilt"></i></a>
-        <?php if ($projects || $gallery): ?><a href="#<?= $projects ? 'projects' : 'gallery' ?>" class="btn btn-outline">View My Work <i class="fa-solid fa-table-cells-large"></i></a><?php endif; ?>
+        <a href="#contact" class="btn btn-gold"><span data-i18n="hero.hire">Hire Me</span> <i class="fa-solid fa-arrow-right tilt"></i></a>
+        <?php if ($projects || $gallery): ?><a href="#<?= $projects ? 'projects' : 'gallery' ?>" class="btn btn-outline"><span data-i18n="hero.work">View My Work</span> <i class="fa-solid fa-table-cells-large"></i></a><?php endif; ?>
+        <?php if ($reel): ?>
+          <?php if ($reel['kind'] === 'link'): ?>
+            <a class="btn-play" href="<?= e($reel['src']) ?>" target="_blank" rel="noopener"><span class="play-dot"><i class="fa-solid fa-play"></i></span><span data-i18n="hero.reel"><?= e(setting('showreel_label', 'Watch Showreel')) ?></span></a>
+          <?php else: ?>
+            <button type="button" class="btn-play" id="reelBtn" data-kind="<?= e($reel['kind']) ?>" data-src="<?= e($reel['src']) ?>"<?= $reel['vertical'] ? ' data-vertical="1"' : '' ?>><span class="play-dot"><i class="fa-solid fa-play"></i></span><span data-i18n="hero.reel"><?= e(setting('showreel_label', 'Watch Showreel')) ?></span></button>
+          <?php endif; ?>
+        <?php endif; ?>
       </div>
       <?php if ($socials): ?>
       <div class="follow">
-        <span>Follow me on</span>
+        <span data-i18n="hero.follow">Follow me on</span>
         <div class="social-row">
           <?php foreach ($socials as $so): ?>
             <a href="<?= e($so['url']) ?>" target="_blank" rel="noopener me" aria-label="<?= e($so['platform']) ?>" title="<?= e($so['platform']) ?>"><i class="<?= e($so['icon'] ?: 'fa-solid fa-link') ?>"></i></a>
@@ -239,7 +277,7 @@ $footer = str_replace('{year}', date('Y'), setting('footer_text', '© {year} ' .
       <div class="skill-extra">
         <?php if ($roles): ?>
           <div class="sx-block">
-            <span class="sx-label">What I do</span>
+            <span class="sx-label" data-i18n="sk.what">What I do</span>
             <div class="sx-chips"><?php foreach ($roles as $r): ?><span><?= e($r) ?></span><?php endforeach; ?></div>
           </div>
         <?php endif; ?>
@@ -248,7 +286,7 @@ $footer = str_replace('{year}', date('Y'), setting('footer_text', '© {year} ' .
           <?php if (setting('contact_location')): ?><div><i class="fa-solid fa-location-dot"></i><?= e($s['contact_location']) ?></div><?php endif; ?>
           <?php if (setting('contact_availability')): ?><div><i class="fa-regular fa-clock"></i><?= e($s['contact_availability']) ?></div><?php endif; ?>
         </div>
-        <a href="#contact" class="btn btn-outline btn-sm sx-cta">Work with me <i class="fa-solid fa-arrow-right"></i></a>
+        <a href="#contact" class="btn btn-outline btn-sm sx-cta"><span data-i18n="sk.cta">Work with me</span> <i class="fa-solid fa-arrow-right"></i></a>
       </div>
       <?php endif; ?>
       <?php if (setting('skills_note')): ?><div class="note-pill"><i class="fa-solid fa-heart"></i><?= e($s['skills_note']) ?></div><?php endif; ?>
@@ -265,10 +303,40 @@ $footer = str_replace('{year}', date('Y'), setting('footer_text', '© {year} ' .
         <article class="service reveal" data-delay="<?= $i % 4 ?>">
           <div class="service-head"><span class="ico-box"><i class="<?= e($sv['icon'] ?: 'fa-solid fa-star') ?>"></i></span><h3><?= e($sv['title']) ?></h3></div>
           <p><?= e($sv['description']) ?></p>
-          <a href="<?= e($sv['link'] ?: '#contact') ?>" class="more">Learn more <i class="fa-solid fa-arrow-right"></i></a>
+          <?php if ($sv['link']): ?>
+            <a href="<?= e($sv['link']) ?>" class="more"><span data-i18n="btn.more">Learn more</span> <i class="fa-solid fa-arrow-right"></i></a>
+          <?php else: ?>
+            <a href="#contact" class="more" data-book="<?= e($sv['title']) ?>" data-service="<?= e($sv['title']) ?>"><span data-i18n="btn.book">Book this</span> <i class="fa-solid fa-arrow-right"></i></a>
+          <?php endif; ?>
         </article>
       <?php endforeach; ?>
     </div>
+  </section>
+  <?php endif; ?>
+
+  <?php if ($packages): ?>
+  <!-- PACKAGES & PRICES -->
+  <section id="packages" class="card section">
+    <?= $label('packages') ?>
+    <?php $pn = count($packages); $pkgCols = $pn % 3 === 0 ? 3 : ($pn % 4 === 0 ? 4 : min(3, max(1, $pn))); ?>
+    <div class="pkg-grid" style="--cols: <?= $pkgCols ?>">
+      <?php foreach ($packages as $i => $pk): ?>
+        <article class="pkg reveal<?= $pk['is_popular'] ? ' popular' : '' ?>" data-delay="<?= $i % 3 ?>">
+          <?php if ($pk['is_popular']): ?><span class="pkg-badge"><i class="fa-solid fa-star"></i> <span data-i18n="pkg.popular">Most Popular</span></span><?php endif; ?>
+          <div class="pkg-head">
+            <span class="ico-box"><i class="<?= e($pk['icon'] ?: 'fa-solid fa-tag') ?>"></i></span>
+            <div><h3><?= e($pk['name']) ?></h3><?php if ($pk['service']): ?><small><?= e($pk['service']) ?></small><?php endif; ?></div>
+          </div>
+          <?php if ($pk['price']): ?><div class="pkg-price"><b><?= e($pk['price']) ?></b><?php if ($pk['price_note']): ?><span><?= e($pk['price_note']) ?></span><?php endif; ?></div><?php endif; ?>
+          <?php if ($pk['description']): ?><p class="pkg-desc"><?= e($pk['description']) ?></p><?php endif; ?>
+          <?php if ($feat = split_lines((string) $pk['features'])): ?>
+            <ul class="pkg-list"><?php foreach ($feat as $f): ?><li><i class="fa-solid fa-check"></i><?= e($f) ?></li><?php endforeach; ?></ul>
+          <?php endif; ?>
+          <a href="#contact" class="btn <?= $pk['is_popular'] ? 'btn-gold' : 'btn-outline' ?> pkg-btn" data-book="<?= e('Package: ' . $pk['name'] . ($pk['price'] ? ' (' . $pk['price'] . ')' : '')) ?>" data-service="<?= e((string) $pk['service']) ?>"><span data-i18n="pkg.book">Book this package</span> <i class="fa-solid fa-arrow-right"></i></a>
+        </article>
+      <?php endforeach; ?>
+    </div>
+    <?php if (setting('packages_note')): ?><p class="pkg-note"><i class="fa-solid fa-circle-info"></i> <?= e($s['packages_note']) ?></p><?php endif; ?>
   </section>
   <?php endif; ?>
 
@@ -317,7 +385,7 @@ $footer = str_replace('{year}', date('Y'), setting('footer_text', '© {year} ' .
       <?= $label('gallery') ?>
       <?php if (count($galleryCats) > 1): ?>
       <div class="filters" role="tablist" aria-label="Filter gallery">
-        <button class="chip active" data-filter="all" role="tab" aria-selected="true">All</button>
+        <button class="chip active" data-filter="all" role="tab" aria-selected="true" data-i18n="g.all">All</button>
         <?php foreach ($galleryCats as $key => $text): ?>
           <button class="chip" data-filter="<?= e($key) ?>" role="tab" aria-selected="false"><i class="<?= e(GALLERY_ICONS[$key] ?? 'fa-solid fa-image') ?>"></i> <?= e($text) ?></button>
         <?php endforeach; ?>
@@ -364,6 +432,27 @@ $footer = str_replace('{year}', date('Y'), setting('footer_text', '© {year} ' .
   </section>
   <?php endif; ?>
 
+  <?php if ($comparisons): ?>
+  <!-- BEFORE & AFTER -->
+  <section id="before-after" class="card section">
+    <div class="sec-head"><?= $label('before-after') ?><span class="sec-hint"><i class="fa-solid fa-arrows-left-right"></i> <span data-i18n="ba.hint">Drag to compare</span></span></div>
+    <div class="ba-grid<?= count($comparisons) === 1 ? ' single' : '' ?>">
+      <?php foreach ($comparisons as $i => $c): ?>
+        <figure class="ba reveal" data-delay="<?= $i % 2 ?>">
+          <div class="ba-frame" style="--pos: 50%">
+            <img class="ba-after" src="<?= e(url($c['after_image'])) ?>" alt="<?= e($c['title']) ?>, after editing" loading="lazy">
+            <div class="ba-before"><img src="<?= e(url($c['before_image'])) ?>" alt="<?= e($c['title']) ?>, before editing" loading="lazy"></div>
+            <span class="ba-tag ba-tag-b" data-i18n="ba.before">Before</span><span class="ba-tag ba-tag-a" data-i18n="ba.after">After</span>
+            <span class="ba-handle" aria-hidden="true"><i class="fa-solid fa-arrows-left-right"></i></span>
+            <input class="ba-range" type="range" min="0" max="100" value="50" aria-label="Compare before and after: <?= e($c['title']) ?>">
+          </div>
+          <figcaption><b><?= e($c['title']) ?></b><?php if ($c['caption']): ?><span><?= e($c['caption']) ?></span><?php endif; ?></figcaption>
+        </figure>
+      <?php endforeach; ?>
+    </div>
+  </section>
+  <?php endif; ?>
+
   <?php if ($experiences): ?>
   <!-- EXPERIENCE -->
   <section id="experience" class="card section">
@@ -385,6 +474,44 @@ $footer = str_replace('{year}', date('Y'), setting('footer_text', '© {year} ' .
       <?php endforeach; ?>
     </ol>
   </section>
+  <?php endif; ?>
+
+  <?php if ($certificates || $gear): ?>
+  <div class="split split-even<?= ($certificates && $gear) ? '' : ' split-one' ?>">
+    <?php if ($certificates): ?>
+    <!-- CERTIFICATES & AWARDS -->
+    <section id="certificates" class="card section">
+      <?= $label('certificates') ?>
+      <ul class="cert-list">
+        <?php foreach ($certificates as $i => $ct):
+          $href = $ct['link'] ?: ($ct['image'] ? url($ct['image']) : ''); ?>
+          <li class="cert reveal" data-delay="<?= $i % 3 ?>">
+            <span class="cert-img"><?php if ($ct['image']): ?><img src="<?= e(url($ct['image'])) ?>" alt="" loading="lazy"><?php else: ?><i class="fa-solid fa-award"></i><?php endif; ?></span>
+            <div class="cert-body">
+              <b><?= e($ct['title']) ?></b>
+              <span><?= e(implode(' · ', array_filter([(string) $ct['issuer'], (string) $ct['issued']], 'strlen'))) ?></span>
+            </div>
+            <?php if ($href): ?><a class="sq-btn" href="<?= e($href) ?>" target="_blank" rel="noopener" aria-label="View <?= e($ct['title']) ?>"><i class="fa-solid fa-arrow-up-right-from-square"></i></a><?php endif; ?>
+          </li>
+        <?php endforeach; ?>
+      </ul>
+    </section>
+    <?php endif; ?>
+    <?php if ($gear): ?>
+    <!-- GEAR -->
+    <section id="gear" class="card section">
+      <?= $label('gear') ?>
+      <div class="gear-grid">
+        <?php foreach ($gear as $i => $gi): ?>
+          <div class="gear reveal" data-delay="<?= $i % 3 ?>">
+            <span class="gear-img"><?php if ($gi['image']): ?><img src="<?= e(url($gi['image'])) ?>" alt="" loading="lazy"><?php else: ?><i class="<?= e(GEAR_ICONS[$gi['category']] ?? 'fa-solid fa-toolbox') ?>"></i><?php endif; ?></span>
+            <div><small><?= e(GEAR_CATEGORIES[$gi['category']] ?? $gi['category']) ?></small><b><?= e($gi['name']) ?></b><?php if ($gi['note']): ?><span><?= e($gi['note']) ?></span><?php endif; ?></div>
+          </div>
+        <?php endforeach; ?>
+      </div>
+    </section>
+    <?php endif; ?>
+  </div>
   <?php endif; ?>
 
   <?php if ($testimonials): ?>
@@ -413,6 +540,40 @@ $footer = str_replace('{year}', date('Y'), setting('footer_text', '© {year} ' .
   </section>
   <?php endif; ?>
 
+  <?php if ($posts): ?>
+  <!-- STORIES (BLOG) -->
+  <section id="stories" class="card section">
+    <?= $label('stories') ?>
+    <div class="story-grid<?= count($posts) === 1 ? " single" : "" ?>">
+      <?php foreach ($posts as $i => $po): ?>
+        <a class="story reveal" data-delay="<?= $i % 3 ?>" href="post.php?slug=<?= e($po['slug']) ?>">
+          <span class="story-img"><?php if ($po['cover']): ?><img src="<?= e(url($po['cover'])) ?>" alt="" loading="lazy"><?php else: ?><i class="fa-solid fa-feather-pointed"></i><?php endif; ?></span>
+          <span class="story-body">
+            <?php if ($po['published_on']): ?><time datetime="<?= e($po['published_on']) ?>"><?= e(date('M j, Y', strtotime($po['published_on']))) ?></time><?php endif; ?>
+            <b><?= hl($po['title']) ?></b>
+            <?php if ($po['excerpt']): ?><span><?= e($po['excerpt']) ?></span><?php endif; ?>
+            <em><span data-i18n="story.read">Read story</span> <i class="fa-solid fa-arrow-right"></i></em>
+          </span>
+        </a>
+      <?php endforeach; ?>
+    </div>
+  </section>
+  <?php endif; ?>
+
+  <?php if ($igHandle): ?>
+  <!-- INSTAGRAM FOLLOW STRIP -->
+  <section class="card ig-strip reveal" aria-label="Instagram">
+    <div class="ig-text">
+      <span class="ig-icon"><i class="fa-brands fa-instagram"></i></span>
+      <div><b>@<?= e($igHandle) ?></b><span data-i18n="ig.text">More photos, reels and behind-the-scenes on Instagram.</span></div>
+    </div>
+    <?php if ($igPhotos): ?>
+      <div class="ig-photos" aria-hidden="true"><?php foreach ($igPhotos as $ph): ?><img src="<?= e($ph) ?>" alt="" loading="lazy"><?php endforeach; ?></div>
+    <?php endif; ?>
+    <a class="btn btn-gold ig-btn" href="https://www.instagram.com/<?= e(rawurlencode($igHandle)) ?>/" target="_blank" rel="noopener"><span data-i18n="ig.follow">Follow on Instagram</span> <i class="fa-solid fa-arrow-right tilt"></i></a>
+  </section>
+  <?php endif; ?>
+
   <!-- CONTACT -->
   <section id="contact" class="card contact">
     <div class="contact-intro reveal">
@@ -425,22 +586,22 @@ $footer = str_replace('{year}', date('Y'), setting('footer_text', '© {year} ' .
         <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
         <div class="hp" aria-hidden="true"><label>Website <input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
         <div class="row2">
-          <label class="fl"><span class="sr">Your name</span><input name="name" placeholder="Your Name" required maxlength="100" autocomplete="name"></label>
-          <label class="fl"><span class="sr">Your email</span><input type="email" name="email" placeholder="Your Email" required maxlength="190" autocomplete="email"></label>
+          <label class="fl"><span class="sr">Your name</span><input name="name" placeholder="Your Name" data-i18n-ph="f.name" required maxlength="100" autocomplete="name"></label>
+          <label class="fl"><span class="sr">Your email</span><input type="email" name="email" placeholder="Your Email" data-i18n-ph="f.email" required maxlength="190" autocomplete="email"></label>
         </div>
         <div class="row2">
           <label class="fl"><span class="sr">What do you need?</span>
             <select name="service">
-              <option value="">What do you need?</option>
+              <option value="" data-i18n="f.need">What do you need?</option>
               <?php foreach ($serviceOptions as $opt): ?><option value="<?= e($opt) ?>"><?= e($opt) ?></option><?php endforeach; ?>
               <option value="Other">Other</option>
             </select>
           </label>
-          <label class="fl"><span class="sr">Subject</span><input name="subject" placeholder="Subject" maxlength="150"></label>
+          <label class="fl"><span class="sr">Subject</span><input name="subject" placeholder="Subject" data-i18n-ph="f.subject" maxlength="150"></label>
         </div>
-        <label class="fl"><span class="sr">Message</span><textarea name="message" placeholder="Your Message" rows="5" required minlength="10" maxlength="5000"></textarea></label>
+        <label class="fl"><span class="sr">Message</span><textarea name="message" placeholder="Your Message" data-i18n-ph="f.message" rows="5" required minlength="10" maxlength="5000"></textarea></label>
         <div class="form-foot">
-          <button class="btn btn-gold" type="submit"><span>Send Message</span> <i class="fa-regular fa-paper-plane"></i></button>
+          <button class="btn btn-gold" type="submit"><span data-i18n="f.send">Send Message</span> <i class="fa-regular fa-paper-plane"></i></button>
           <p class="form-status" id="formStatus" role="status" aria-live="polite">
             <?php foreach ($flashes as $f): ?><span class="<?= e($f['type']) ?>"><?= e($f['msg']) ?></span><?php endforeach; ?>
           </p>
@@ -487,6 +648,13 @@ $footer = str_replace('{year}', date('Y'), setting('footer_text', '© {year} ' .
       <span class="lb-meta"><span class="lb-count" id="lbCount" hidden></span><a class="lb-link" id="lbLink" target="_blank" rel="noopener" hidden></a></span>
     </figcaption>
   </figure>
+</div>
+<?php endif; ?>
+
+<?php if ($reel && $reel['kind'] !== 'link'): ?>
+<div class="lightbox reel-box" id="reelBox" hidden role="dialog" aria-modal="true" aria-label="Showreel">
+  <button class="lb-btn lb-close" id="reelClose" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+  <div class="lb-stage" id="reelStage"></div>
 </div>
 <?php endif; ?>
 

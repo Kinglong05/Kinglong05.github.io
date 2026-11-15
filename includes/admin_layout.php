@@ -138,7 +138,7 @@ function render_field(string $name, array $def, $value): void
                     . '<input type="text" id="' . $id . '" name="' . e($name) . '" value="' . e((string) $value) . '" data-icon-input autocomplete="off"></div>';
                 break;
             default:
-                $htmlType = in_array($type, ['url', 'email', 'number'], true) ? $type : 'text';
+                $htmlType = in_array($type, ['url', 'email', 'number', 'date'], true) ? $type : 'text';
                 if ($type === 'url') $htmlType = 'text'; // allow "#" and relative links
                 $extra = '';
                 if ($type === 'number') {
@@ -189,6 +189,11 @@ function collect_field(string $name, array $def, $current, array &$errors, array
 
     $v = trim((string) ($_POST[$name] ?? ''));
 
+    if ($type === 'date') {
+        if ($v === '') return null;
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $v)) { $errors[] = "$label must be a valid date."; return null; }
+        return $v;
+    }
     if ($type === 'select') {
         return array_key_exists($v, $def['options']) ? $v : (string) array_key_first($def['options']);
     }

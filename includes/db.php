@@ -16,7 +16,7 @@ function db(): PDO
 }
 
 /** Tables that hold list content (used for whitelisting dynamic table names). */
-const CONTENT_TABLES = ['skills', 'services', 'projects', 'gallery', 'experiences', 'testimonials', 'socials'];
+const CONTENT_TABLES = ['skills', 'services', 'packages', 'projects', 'gallery', 'comparisons', 'experiences', 'certificates', 'gear', 'testimonials', 'socials', 'posts'];
 
 function fetch_rows(string $table, bool $visibleOnly = true): array
 {

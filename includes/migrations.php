@@ -10,7 +10,7 @@ declare(strict_types=1);
  * so anything you've already edited in the admin is left alone.
  */
 
-const SCHEMA_VERSION = 5;
+const SCHEMA_VERSION = 6;
 
 function run_migrations(): void
 {
@@ -193,4 +193,70 @@ function migration_5(PDO $pdo): void
     }
     $pdo->exec("UPDATE gallery SET description = '' WHERE description = 'Sample item: upload your own photo or video link in the admin panel.'
         AND ((image IS NOT NULL AND image <> '') OR (video_url IS NOT NULL AND video_url <> ''))");
+}
+
+/** v6: packages & prices, before/after, certificates, gear, stories (blog) + extras */
+function migration_6(PDO $pdo): void
+{
+    $common = "sort_order INT NOT NULL DEFAULT 0,
+        is_visible TINYINT(1) NOT NULL DEFAULT 1,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
+
+    $pdo->exec("CREATE TABLE IF NOT EXISTS packages (
+        id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(150) NOT NULL,
+        service VARCHAR(150) NULL,
+        price VARCHAR(60) NULL,
+        price_note VARCHAR(100) NULL,
+        description TEXT NULL,
+        features TEXT NULL,
+        icon VARCHAR(100) NULL,
+        is_popular TINYINT(1) NOT NULL DEFAULT 0,
+        $common");
+
+    $pdo->exec("CREATE TABLE IF NOT EXISTS comparisons (
+        id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        title VARCHAR(150) NOT NULL,
+        before_image VARCHAR(255) NULL,
+        after_image VARCHAR(255) NULL,
+        caption VARCHAR(300) NULL,
+        $common");
+
+    $pdo->exec("CREATE TABLE IF NOT EXISTS certificates (
+        id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        title VARCHAR(200) NOT NULL,
+        issuer VARCHAR(150) NULL,
+        issued VARCHAR(60) NULL,
+        image VARCHAR(255) NULL,
+        link VARCHAR(500) NULL,
+        $common");
+
+    $pdo->exec("CREATE TABLE IF NOT EXISTS gear (
+        id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(150) NOT NULL,
+        category VARCHAR(30) NOT NULL DEFAULT 'camera',
+        note VARCHAR(200) NULL,
+        image VARCHAR(255) NULL,
+        $common");
+
+    $pdo->exec("CREATE TABLE IF NOT EXISTS posts (
+        id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        title VARCHAR(200) NOT NULL,
+        slug VARCHAR(120) NOT NULL,
+        published_on DATE NULL,
+        cover VARCHAR(255) NULL,
+        excerpt VARCHAR(400) NULL,
+        body MEDIUMTEXT NULL,
+        UNIQUE KEY uq_slug (slug),
+        $common");
+
+    foreach (['show_packages', 'show_comparisons', 'show_certificates', 'show_gear', 'show_posts', 'show_instagram', 'show_theme_toggle', 'show_lang_toggle'] as $k) {
+        if (!isset(settings()[$k])) save_setting($k, '1');
+    }
+    if (!isset(settings()['packages_note'])) {
+        save_setting('packages_note', 'Starting rates. Your final quote depends on location, hours and deliverables. Message me for a custom package.');
+    }
+    if (!isset(settings()['showreel_label'])) save_setting('showreel_label', 'Watch Showreel');
+    if (empty(settings()['ga_property_id'])) save_setting('ga_property_id', '534156941');
 }

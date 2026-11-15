@@ -57,6 +57,30 @@ return [
             'link'        => ['type' => 'url', 'label' => '"Learn more" link', 'help' => 'Leave empty to link to the contact form.'],
         ],
     ],
+    'packages' => [
+        'label' => 'Packages & Prices', 'singular' => 'Package', 'icon' => 'fa-solid fa-tags',
+        'columns' => ['icon' => 'Icon', 'name' => 'Package', 'price' => 'Price', 'service' => 'Service', 'is_popular' => 'Popular'],
+        'fields' => [
+            'name'        => ['type' => 'text', 'label' => 'Package name', 'required' => true, 'max' => 150, 'help' => 'e.g. Portrait Session, Event Coverage, Drone Aerial Package'],
+            'service'     => ['type' => 'text', 'label' => 'Service it belongs to', 'max' => 150, 'help' => 'Type the exact name of one of your Services (e.g. Photography) so the "Book" button pre-selects it in the contact form.'],
+            'price'       => ['type' => 'text', 'label' => 'Price', 'half' => true, 'max' => 60, 'help' => 'e.g. ₱2,500 or "Starts at ₱8,000" or "Custom quote"'],
+            'price_note'  => ['type' => 'text', 'label' => 'Price note', 'half' => true, 'max' => 100, 'help' => 'e.g. per session, per event, per hour'],
+            'description' => ['type' => 'textarea', 'label' => 'Short description', 'rows' => 2, 'max' => 400],
+            'features'    => ['type' => 'textarea', 'label' => "What's included", 'rows' => 5, 'max' => 2000, 'help' => 'One per line, e.g. "1 hour shoot", "20 edited photos", "Online gallery".'],
+            'icon'        => ['type' => 'icon', 'label' => 'Icon', 'help' => 'e.g. <code>fa-solid fa-camera</code>, <code>fa-solid fa-video</code>, <code>icon-drone</code>, <code>fa-solid fa-code</code>'],
+            'is_popular'  => ['type' => 'checkbox', 'label' => 'Highlight as "Most Popular"'],
+        ],
+    ],
+    'comparisons' => [
+        'label' => 'Before & After', 'singular' => 'Before/after pair', 'icon' => 'fa-solid fa-sliders',
+        'columns' => ['after_image' => 'After', 'title' => 'Title', 'caption' => 'Caption'],
+        'fields' => [
+            'title'        => ['type' => 'text', 'label' => 'Title', 'required' => true, 'max' => 150, 'help' => 'e.g. "Golden hour color grade"'],
+            'before_image' => ['type' => 'image', 'label' => 'BEFORE (raw / unedited)', 'half' => true],
+            'after_image'  => ['type' => 'image', 'label' => 'AFTER (edited)', 'half' => true],
+            'caption'      => ['type' => 'text', 'label' => 'Caption (optional)', 'max' => 300, 'help' => 'What you did, e.g. "Lightroom: exposure, skin tones, warm grade"'],
+        ],
+    ],
     'experiences' => [
         'label' => 'Experience', 'singular' => 'Experience', 'icon' => 'fa-solid fa-timeline',
         'columns' => ['logo' => 'Logo', 'role' => 'Role', 'company' => 'Company', 'period' => 'Period'],
@@ -78,6 +102,40 @@ return [
             'quote'    => ['type' => 'textarea', 'label' => 'Testimonial', 'required' => true, 'max' => 800],
             'avatar'   => ['type' => 'image', 'label' => 'Photo'],
             'rating'   => ['type' => 'number', 'label' => 'Rating (1-5)', 'min' => 1, 'max' => 5, 'default' => 5],
+        ],
+    ],
+    'certificates' => [
+        'label' => 'Certificates & Awards', 'singular' => 'Certificate', 'icon' => 'fa-solid fa-award',
+        'columns' => ['image' => 'Image', 'title' => 'Title', 'issuer' => 'Issuer', 'issued' => 'Date'],
+        'fields' => [
+            'title'  => ['type' => 'text', 'label' => 'Certificate / award', 'required' => true, 'max' => 200, 'help' => 'e.g. "Drone Pilot Training", "Best in Photography - Campus Press Conference"'],
+            'issuer' => ['type' => 'text', 'label' => 'Issued by', 'half' => true, 'max' => 150],
+            'issued' => ['type' => 'text', 'label' => 'Date', 'half' => true, 'max' => 60, 'help' => 'e.g. March 2025'],
+            'image'  => ['type' => 'image', 'label' => 'Photo / scan of the certificate (optional)'],
+            'link'   => ['type' => 'url', 'label' => 'Verification or post link (optional)'],
+        ],
+    ],
+    'gear' => [
+        'label' => 'Gear', 'singular' => 'Gear item', 'icon' => 'fa-solid fa-camera-retro',
+        'columns' => ['image' => 'Photo', 'name' => 'Name', 'category' => 'Type', 'note' => 'Note'],
+        'fields' => [
+            'name'     => ['type' => 'text', 'label' => 'Name', 'required' => true, 'max' => 150, 'help' => 'e.g. "Sony a6400", "DJI Mini 3", "Rode Wireless GO II"'],
+            'category' => ['type' => 'select', 'label' => 'Type', 'half' => true, 'options' => GEAR_CATEGORIES],
+            'note'     => ['type' => 'text', 'label' => 'Short note (optional)', 'half' => true, 'max' => 200, 'help' => 'e.g. "Main camera", "4K aerials"'],
+            'image'    => ['type' => 'image', 'label' => 'Photo (optional)', 'help' => 'Leave empty to show an icon.'],
+        ],
+    ],
+    'posts' => [
+        'label' => 'Stories (Blog)', 'singular' => 'Story', 'icon' => 'fa-solid fa-feather-pointed',
+        'columns' => ['cover' => 'Cover', 'title' => 'Title', 'published_on' => 'Date', 'slug' => 'Link'],
+        'fields' => [
+            'title'        => ['type' => 'text', 'label' => 'Title', 'required' => true, 'max' => 200, 'help' => 'e.g. "Behind the shoot: Vivian & Jun Romer\'s wedding"'],
+            'published_on' => ['type' => 'date', 'label' => 'Date', 'half' => true],
+            'slug'         => ['type' => 'text', 'label' => 'Link name (optional)', 'half' => true, 'max' => 120, 'help' => 'Made from the title if empty, e.g. <code>behind-the-wedding-shoot</code>'],
+            'cover'        => ['type' => 'image', 'label' => 'Cover photo'],
+            'excerpt'      => ['type' => 'textarea', 'label' => 'Short summary (shown on the card)', 'rows' => 2, 'max' => 400],
+            'body'         => ['type' => 'textarea', 'label' => 'Story', 'rows' => 16, 'max' => 60000,
+                'help' => 'Write normally; leave an empty line between paragraphs. Extras: <code>## Heading</code>, <code>- list item</code>, <code>&gt; quote</code>, <code>**gold text**</code>, <code>[link text](https://...)</code>, and a photo on its own line: <code>![caption](https://... or uploads/...)</code>.'],
         ],
     ],
     'socials' => [

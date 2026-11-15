@@ -178,6 +178,60 @@ const GALLERY_ICONS = [
     'drone'       => 'icon-drone',
 ];
 
+const GEAR_CATEGORIES = [
+    'camera'   => 'Camera',
+    'lens'     => 'Lens',
+    'drone'    => 'Drone',
+    'audio'    => 'Audio',
+    'lighting' => 'Lighting',
+    'support'  => 'Tripod / Gimbal',
+    'computer' => 'Computer',
+    'other'    => 'Other',
+];
+const GEAR_ICONS = [
+    'camera' => 'fa-solid fa-camera', 'lens' => 'fa-solid fa-circle-dot', 'drone' => 'icon-drone',
+    'audio' => 'fa-solid fa-microphone', 'lighting' => 'fa-regular fa-lightbulb', 'support' => 'fa-solid fa-person-walking-luggage',
+    'computer' => 'fa-solid fa-laptop', 'other' => 'fa-solid fa-toolbox',
+];
+
+function slugify(string $s): string
+{
+    $s = str_replace('**', '', $s);
+    if (function_exists('iconv')) $s = (string) @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $s);
+    $s = strtolower(trim(preg_replace('~[^A-Za-z0-9]+~', '-', $s), '-'));
+    return substr($s, 0, 80) ?: 'story';
+}
+
+/** Story text -> safe HTML. Paragraphs, ## headings, - lists, > quotes, **gold**, [links](https://), ![photos](url). */
+function render_story(string $body): string
+{
+    $out = '';
+    $blocks = preg_split('/\R\s*\R/', trim(str_replace("\r", '', $body)));
+    $inline = function (string $t): string {
+        $h = hl($t); // escapes + **gold** + line breaks
+        return preg_replace('~\[([^\]]+)\]\((https?://[^\s)]+)\)~', '<a href="$2" target="_blank" rel="noopener">$1</a>', $h);
+    };
+    foreach ($blocks as $b) {
+        $b = trim($b);
+        if ($b === '') continue;
+        if (preg_match('/^!\[([^\]]*)\]\(((?:https?:\/\/|uploads\/)[^\s)]+)\)$/', $b, $m)) {
+            $src = str_starts_with($m[2], 'uploads/') ? url($m[2]) : $m[2];
+            $out .= '<figure><img src="' . e($src) . '" alt="' . e($m[1]) . '" loading="lazy">' . ($m[1] !== '' ? '<figcaption>' . e($m[1]) . '</figcaption>' : '') . '</figure>';
+        } elseif (preg_match('/^(#{2,3})\s+(.+)$/s', $b, $m)) {
+            $tag = strlen($m[1]) === 2 ? 'h2' : 'h3';
+            $out .= "<$tag>" . $inline($m[2]) . "</$tag>";
+        } elseif (preg_match('/^[-*]\s/', $b)) {
+            $items = preg_split('/\R/', $b);
+            $out .= '<ul>' . implode('', array_map(fn($li) => '<li>' . $inline(preg_replace('/^[-*]\s+/', '', $li)) . '</li>', $items)) . '</ul>';
+        } elseif (str_starts_with($b, '>')) {
+            $out .= '<blockquote>' . $inline(preg_replace('/^>\s?/m', '', $b)) . '</blockquote>';
+        } else {
+            $out .= '<p>' . $inline($b) . '</p>';
+        }
+    }
+    return $out;
+}
+
 function youtube_id(string $url): ?string
 {
     if (preg_match('~(?:youtu\.be/|youtube(?:-nocookie)?\.com/(?:watch\?(?:.*&)?v=|embed/|shorts/|live/|v/))([A-Za-z0-9_-]{11})~', $url, $m)) {

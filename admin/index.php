@@ -34,6 +34,8 @@ $checks = [
 ];
 $done = count(array_filter($checks, fn($c) => $c[1]));
 
+require APP_ROOT . '/includes/ga_stats.php';
+$ga = ga_stats(isset($_GET['refresh_stats']));
 admin_header('Dashboard', 'dashboard');
 ?>
 <div class="welcome">
@@ -68,6 +70,37 @@ admin_header('Dashboard', 'dashboard');
   <a class="stat" href="manage.php?type=projects"><span class="stat-ico"><i class="fa-solid fa-briefcase"></i></span><div><b><?= $counts['projects'] ?></b><small>Projects</small></div></a>
   <a class="stat" href="manage.php?type=gallery"><span class="stat-ico"><i class="fa-solid fa-images"></i></span><div><b><?= $counts['gallery'] ?></b><small>Photos & videos</small></div></a>
 </div>
+
+<section class="panel visitors">
+  <div class="panel-head">
+    <h3><i class="fa-solid fa-chart-line"></i> Website visitors</h3>
+    <?php if ($ga['ok']): ?><a class="link" href="?refresh_stats=1"><i class="fa-solid fa-rotate"></i> Refresh · updated <?= e(time_ago(date('Y-m-d H:i:s', $ga['fetched']))) ?></a><?php endif; ?>
+  </div>
+  <?php if ($ga['ok']): ?>
+    <div class="v-grid">
+      <div class="v-stat live"><span class="v-dot"></span><b><?= (int) $ga['live'] ?></b><small>on your site right now</small></div>
+      <?php foreach (['today' => 'Today', 'week' => 'Last 7 days', 'month' => 'Last 28 days'] as $k => $lbl): ?>
+        <div class="v-stat"><b><?= number_format($ga[$k][0]) ?></b><small><?= $lbl ?> · <?= number_format($ga[$k][1]) ?> page views</small></div>
+      <?php endforeach; ?>
+    </div>
+    <div class="v-lists">
+      <?php foreach (['countries' => ['Top countries', 'fa-earth-asia'], 'devices' => ['Devices', 'fa-mobile-screen'], 'sources' => ['Came from', 'fa-arrow-right-to-bracket']] as $k => [$lbl, $ico]): ?>
+        <div><h4><i class="fa-solid <?= $ico ?>"></i> <?= $lbl ?> <small>(28 days)</small></h4>
+          <?php if (empty($ga[$k])): ?><p class="muted">No data yet.</p><?php else: $max = max(1, max(array_column($ga[$k], 1))); ?>
+            <ul class="v-bars"><?php foreach ($ga[$k] as [$nm, $n]): ?><li><span><?= e($nm === '(direct)' ? 'Typed / bookmark' : ($nm === '(not set)' ? 'Unknown' : ucfirst($nm))) ?></span><b><?= (int) $n ?></b><i style="width: <?= round($n / $max * 100) ?>%"></i></li><?php endforeach; ?></ul>
+          <?php endif; ?>
+        </div>
+      <?php endforeach; ?>
+    </div>
+  <?php elseif ($ga['error'] === 'not_configured'): ?>
+    <p class="muted">See visitor numbers here (live visitors, today, this week, countries, devices) without opening Google Analytics.
+      One-time setup in <a class="link" href="settings.php?tab=analytics">Settings → Visitor Stats</a> (paste a Google service-account key).</p>
+  <?php else: ?>
+    <div class="alert alert-warn"><i class="fa-solid fa-triangle-exclamation"></i><span>Couldn't load visitor numbers: <?= e($ga['error']) ?>
+      <?= str_contains(strtolower($ga['error']), 'permission') ? '<br>Add the service account\'s email as a <b>Viewer</b> in Google Analytics → Admin → Property access management.' : '' ?>
+      <?= str_contains(strtolower($ga['error']), 'api has not been used') || str_contains(strtolower($ga['error']), 'disabled') ? '<br>Enable the "Google Analytics Data API" in your Google Cloud project, wait 2 minutes, then refresh.' : '' ?></span></div>
+  <?php endif; ?>
+</section>
 
 <div class="dash-grid">
   <section class="panel">

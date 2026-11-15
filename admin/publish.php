@@ -87,7 +87,7 @@ admin_header('Publish', 'publish');
   <?php elseif ($report): ?>
     <div class="alert alert-success"><i class="fa-solid fa-circle-check"></i><span>
       <?= $log ? 'Published! Your live site updates in about a minute.' : 'Built index.html (not uploaded).' ?>
-      <?= (int) $report['files'] ?> media files (<?= e((string) $report['mb']) ?> MB<?= $report['saved_mb'] > 0 ? ', ' . e((string) $report['saved_mb']) . ' MB saved by optimizing photos' : '' ?>). Contact form: <?= e($report['form']) ?>.
+      <?= (int) ($report['pages'] ?? 1) ?> page<?= ($report['pages'] ?? 1) == 1 ? '' : 's' ?>, <?= (int) $report['files'] ?> media files (<?= e((string) $report['mb']) ?> MB<?= $report['saved_mb'] > 0 ? ', ' . e((string) $report['saved_mb']) . ' MB saved by optimizing photos' : '' ?>). Contact form: <?= e($report['form']) ?>.
       <?php if ($vercel): ?><br><i class="fa-solid fa-check"></i> Vercel updated too<?= $vercel['url'] ? ': ' . e($vercel['url']) : '' ?>.<?php endif; ?></span></div>
     <?php if ($vercelError): ?>
       <div class="alert alert-warn"><i class="fa-solid fa-triangle-exclamation"></i><span>GitHub Pages was updated, but Vercel wasn't. Details below.</span></div>

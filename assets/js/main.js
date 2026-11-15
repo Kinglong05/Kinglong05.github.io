@@ -380,3 +380,148 @@
     form.addEventListener('input', e => e.target.classList.remove('invalid'));
   }
 })();
+
+/* ===================== v3 features ===================== */
+(() => {
+  const $ = (s, c = document) => c.querySelector(s);
+  const $$ = (s, c = document) => [...c.querySelectorAll(s)];
+  const root = document.documentElement;
+  const store = {
+    get: k => { try { return localStorage.getItem(k); } catch { return null; } },
+    set: (k, v) => { try { localStorage.setItem(k, v); } catch { /* private mode */ } },
+  };
+  const gaEvent = (name, label) => {
+    try { if (typeof window.gtag === 'function') window.gtag('event', name, label ? { item_name: label } : {}); } catch { /* ignore */ }
+  };
+
+  /* ---- Light / dark mode ---- */
+  const themeBtn = $('#themeToggle');
+  const paintThemeBtn = () => {
+    if (!themeBtn) return;
+    const light = root.getAttribute('data-theme') === 'light';
+    themeBtn.innerHTML = light ? '<i class="fa-solid fa-moon"></i>' : '<i class="fa-solid fa-sun"></i>';
+    themeBtn.setAttribute('aria-label', light ? 'Switch to dark mode' : 'Switch to light mode');
+    const meta = $('meta[name="theme-color"]');
+    if (meta) meta.content = light ? '#f6f4ef' : '#0a0a0a';
+  };
+  themeBtn?.addEventListener('click', () => {
+    const light = root.getAttribute('data-theme') !== 'light';
+    if (light) root.setAttribute('data-theme', 'light'); else root.removeAttribute('data-theme');
+    store.set('theme', light ? 'light' : 'dark');
+    paintThemeBtn();
+    gaEvent('theme_switch', light ? 'light' : 'dark');
+  });
+  paintThemeBtn();
+
+  /* ---- English / Filipino (site buttons & labels; your own text stays as written) ---- */
+  const FIL = {
+    'nav.home': 'Home', 'nav.about': 'Tungkol', 'nav.services': 'Serbisyo', 'nav.packages': 'Presyo', 'nav.projects': 'Proyekto',
+    'nav.gallery': 'Galeriya', 'nav.experience': 'Karanasan', 'nav.testimonials': 'Review', 'nav.stories': 'Kuwento', 'nav.contact': 'Kontak',
+    'nav.cta': 'Mag-usap Tayo',
+    'hero.im': 'Ako ay isang', 'hero.hire': 'I-hire Ako', 'hero.work': 'Tingnan ang Gawa Ko', 'hero.reel': 'Panoorin ang Showreel', 'hero.follow': 'Sundan ako sa',
+    'sec.about': 'Tungkol sa Akin', 'sec.skills': 'Kasanayan at Tools', 'sec.services': 'Mga Serbisyo', 'sec.packages': 'Mga Package at Presyo',
+    'sec.projects': 'Mga Proyekto', 'sec.gallery': 'Litrato, Video at Drone', 'sec.before-after': 'Bago at Pagkatapos', 'sec.experience': 'Karanasan',
+    'sec.certificates': 'Mga Sertipiko at Parangal', 'sec.gear': 'Mga Gamit Ko', 'sec.testimonials': 'Mga Review', 'sec.stories': 'Mga Kuwento',
+    'sec.contact': 'Makipag-ugnayan',
+    'sk.what': 'Ang Ginagawa Ko', 'sk.cta': 'Makipagtulungan sa Akin',
+    'btn.more': 'Alamin pa', 'btn.book': 'I-book ito', 'pkg.book': 'I-book ang package', 'pkg.popular': 'Pinakasikat',
+    'ba.hint': 'I-drag para ikumpara', 'ba.before': 'Bago', 'ba.after': 'Pagkatapos',
+    'g.all': 'Lahat', 'story.read': 'Basahin', 'ig.text': 'Mas maraming litrato, reels at behind-the-scenes sa Instagram.', 'ig.follow': 'Sundan sa Instagram',
+    'f.name': 'Pangalan Mo', 'f.email': 'Email Mo', 'f.need': 'Ano ang kailangan mo?', 'f.subject': 'Paksa', 'f.message': 'Mensahe Mo', 'f.send': 'Ipadala',
+  };
+  const langBtn = $('#langToggle');
+  const applyLang = lang => {
+    $$('[data-i18n]').forEach(el => {
+      if (el.dataset.en === undefined) el.dataset.en = el.textContent;
+      el.textContent = lang === 'fil' && FIL[el.dataset.i18n] ? FIL[el.dataset.i18n] : el.dataset.en;
+    });
+    $$('[data-i18n-ph]').forEach(el => {
+      if (el.dataset.enPh === undefined) el.dataset.enPh = el.placeholder;
+      el.placeholder = lang === 'fil' && FIL[el.dataset.i18nPh] ? FIL[el.dataset.i18nPh] : el.dataset.enPh;
+    });
+    root.lang = lang === 'fil' ? 'fil' : 'en';
+    if (langBtn) {
+      langBtn.textContent = lang === 'fil' ? 'EN' : 'FIL';
+      langBtn.setAttribute('aria-label', lang === 'fil' ? 'Switch language to English' : 'Switch language to Filipino');
+    }
+  };
+  if (langBtn) {
+    if (store.get('lang') === 'fil') applyLang('fil');
+    langBtn.addEventListener('click', () => {
+      const next = root.lang === 'fil' ? 'en' : 'fil';
+      store.set('lang', next);
+      applyLang(next);
+      gaEvent('language_switch', next);
+    });
+  }
+
+  /* ---- "Book this" buttons pre-fill the contact form ---- */
+  document.addEventListener('click', e => {
+    const b = e.target.closest('[data-book]');
+    if (!b) return;
+    const form = $('#contactForm');
+    if (!form) return;
+    const sel = form.elements.service;
+    const want = b.dataset.service || '';
+    if (sel && want && [...sel.options].some(o => o.value === want)) sel.value = want;
+    if (form.elements.subject) form.elements.subject.value = b.dataset.book;
+    gaEvent('book_click', b.dataset.book);
+    setTimeout(() => form.elements.name?.focus({ preventScroll: true }), 650);
+  });
+
+  /* ---- Before / after sliders ---- */
+  $$('.ba-frame').forEach(frame => {
+    const range = $('.ba-range', frame);
+    range?.addEventListener('input', () => frame.style.setProperty('--pos', range.value + '%'));
+  });
+
+  /* ---- Showreel ---- */
+  const reelBtn = $('#reelBtn');
+  const reelBox = $('#reelBox');
+  if (reelBtn && reelBox) {
+    const stage = $('#reelStage');
+    let last = null;
+    const close = () => {
+      reelBox.hidden = true;
+      stage.replaceChildren(); // stops playback
+      document.body.classList.remove('lb-open');
+      last?.focus();
+    };
+    reelBtn.addEventListener('click', () => {
+      last = document.activeElement;
+      const { kind, src } = reelBtn.dataset;
+      stage.classList.toggle('vertical', reelBtn.dataset.vertical === '1');
+      if (kind === 'file') {
+        stage.replaceChildren(Object.assign(document.createElement('video'), { src, controls: true, autoplay: true, playsInline: true }));
+      } else {
+        const f = Object.assign(document.createElement('iframe'), { src, title: 'Showreel', allowFullscreen: true });
+        f.setAttribute('allow', 'autoplay; fullscreen; picture-in-picture; encrypted-media');
+        stage.replaceChildren(f);
+      }
+      reelBox.hidden = false;
+      document.body.classList.add('lb-open');
+      $('#reelClose').focus();
+      gaEvent('showreel_play');
+    });
+    $('#reelClose').addEventListener('click', close);
+    reelBox.addEventListener('click', e => { if (e.target === reelBox) close(); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' && !reelBox.hidden) close(); });
+  }
+
+  /* ---- Story page: copy link / native share ---- */
+  const copyBtn = $('#copyLink');
+  copyBtn?.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(copyBtn.dataset.url);
+      copyBtn.innerHTML = '<i class="fa-solid fa-check"></i>';
+    } catch {
+      window.prompt('Copy this link:', copyBtn.dataset.url);
+    }
+    setTimeout(() => { copyBtn.innerHTML = '<i class="fa-solid fa-link"></i>'; }, 1800);
+  });
+  const shareBtn = $('#nativeShare');
+  if (shareBtn && navigator.share) {
+    shareBtn.hidden = false;
+    shareBtn.addEventListener('click', () => navigator.share({ title: shareBtn.dataset.title, url: shareBtn.dataset.url }).catch(() => {}));
+  }
+})();

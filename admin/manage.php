@@ -133,6 +133,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $data[$name] = collect_field($name, $def, $existing[$name] ?? null, $errors, $tx);
         }
         $data['is_visible'] = (($_POST['is_visible'] ?? '0') === '1') ? 1 : 0;
+        if ($type === 'posts' && !$errors) {
+            // Link name: from the title if empty, and never the same as another story
+            $slug = slugify((string) (($data['slug'] ?? '') !== '' ? $data['slug'] : $data['title']));
+            $base = $slug;
+            $chk = db()->prepare('SELECT COUNT(*) FROM posts WHERE slug = ? AND id <> ?');
+            for ($n = 2; ; $n++) {
+                $chk->execute([$slug, $id]);
+                if ((int) $chk->fetchColumn() === 0) break;
+                $slug = $base . '-' . $n;
+            }
+            $data['slug'] = $slug;
+            if (empty($data['published_on'])) $data['published_on'] = date('Y-m-d');
+        }
         if ($type === 'gallery') {
             $data['embed_status'] = null;
             $link = (string) ($data['video_url'] ?? '');
