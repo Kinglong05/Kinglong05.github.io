@@ -77,6 +77,32 @@ function build_static_site(): array
     }
     $html = preg_replace('~(?<![\w.-])uploads/(images|videos|files)/~i', PUBLISH_MEDIA_DIR . '/$1/', $html);
 
+    // 2b) Make photos light: convert to WebP (max 1920px) so the site loads fast on mobile data
+    $saved = 0;
+    foreach ($files as $rel) {
+        if (!preg_match('~^images/(.+)\.(jpe?g|png|webp)$~i', $rel, $mm)) continue;
+        $src = $mediaRoot . '/' . $rel;
+        if (!is_file($src)) continue;
+        $webpRel = 'images/' . $mm[1] . '.webp';
+        $before = filesize($src);
+        if (optimize_to_webp($src, $mediaRoot . '/' . $webpRel)) {
+            $after = filesize($mediaRoot . '/' . $webpRel);
+            if ($webpRel !== $rel) {
+                if ($after < $before) {
+                    unlink($src);
+                    $html = str_replace(PUBLISH_MEDIA_DIR . '/' . $rel, PUBLISH_MEDIA_DIR . '/' . $webpRel, $html);
+                    $saved += $before - $after;
+                } else {
+                    unlink($mediaRoot . '/' . $webpRel); // original was already smaller
+                }
+            } else {
+                $saved += max(0, $before - $after);
+            }
+        }
+    }
+    $bytes = 0;
+    foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($mediaRoot, FilesystemIterator::SKIP_DOTS)) as $f) $bytes += $f->getSize();
+
     // 3) Contact form: no PHP on GitHub Pages -> Formspree (if set) or the visitor's email app
     $html = preg_replace('~<input type="hidden" name="csrf" value="[^"]*">~', '', $html);
     $html = str_replace('name="website"', 'name="_gotcha"', $html); // Formspree's spam honeypot field
@@ -96,13 +122,121 @@ function build_static_site(): array
     file_put_contents(APP_ROOT . '/index.html', $html);
     if (!is_file(APP_ROOT . '/.nojekyll')) file_put_contents(APP_ROOT . '/.nojekyll', '');
 
+    // 5) Search engines + a friendly "page not found"
+    $day = date('Y-m-d');
+    file_put_contents(APP_ROOT . '/sitemap.xml', "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n  <url><loc>" . e($live) . "</loc><lastmod>$day</lastmod><changefreq>weekly</changefreq><priority>1.0</priority></url>\n</urlset>\n");
+    file_put_contents(APP_ROOT . '/robots.txt', "User-agent: *\nAllow: /\nDisallow: /admin/\nDisallow: /includes/\nDisallow: /database/\nDisallow: /config/\nDisallow: /.deploy/\n\nSitemap: {$live}sitemap.xml\n");
+    file_put_contents(APP_ROOT . '/404.html', publish_404_page());
+
     return [
         'files'   => count($files) - count($missing),
         'missing' => $missing,
         'mb'      => round($bytes / 1048576, 1),
+        'saved_mb'=> round($saved / 1048576, 1),
         'form'    => $formMode,
         'live'    => $live,
     ];
+}
+
+/** Resize (max 1920px) and save as WebP, keeping transparency and phone-photo rotation. */
+function optimize_to_webp(string $src, string $dest, int $maxSide = 1920, int $quality = 80): bool
+{
+    if (!function_exists('imagewebp')) return false;
+    $data = @file_get_contents($src);
+    $im = $data !== false ? @imagecreatefromstring($data) : false;
+    if (!$im) return false;
+    // Phone photos are often stored sideways with an EXIF "rotate me" flag that WebP doesn't keep
+    if (function_exists('exif_read_data') && preg_match('~\.jpe?g$~i', $src)) {
+        $exif = @exif_read_data($src);
+        $rot = [3 => 180, 6 => -90, 8 => 90][(int) ($exif['Orientation'] ?? 1)] ?? 0;
+        if ($rot) { $r = imagerotate($im, $rot, 0); if ($r) { imagedestroy($im); $im = $r; } }
+    }
+    $w = imagesx($im); $h = imagesy($im);
+    $scale = min(1, $maxSide / max($w, $h));
+    $nw = max(1, (int) round($w * $scale)); $nh = max(1, (int) round($h * $scale));
+    $out = imagecreatetruecolor($nw, $nh);
+    imagealphablending($out, false);
+    imagesavealpha($out, true);
+    imagefill($out, 0, 0, imagecolorallocatealpha($out, 0, 0, 0, 127));
+    imagecopyresampled($out, $im, 0, 0, 0, 0, $nw, $nh, $w, $h);
+    $ok = imagewebp($out, $dest, $quality);
+    imagedestroy($im); imagedestroy($out);
+    return $ok && is_file($dest) && filesize($dest) > 0;
+}
+
+function publish_404_page(): string
+{
+    $name = e(setting('owner_name', 'Portfolio'));
+    $live = e(publish_site_url());
+    return <<<HTML
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Page not found · $name</title><meta name="robots" content="noindex">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@600;700&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--gold:#f5b335;--gold2:#ffd27a}*{box-sizing:border-box}
+body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;background:radial-gradient(circle at 75% 10%,rgba(245,179,53,.18),transparent 45%),#070707;color:#f5f5f4;font:15px/1.6 Inter,system-ui,sans-serif;text-align:center}
+h1{font:700 clamp(72px,18vw,140px)/1 Outfit,sans-serif;margin:0;background:linear-gradient(100deg,var(--gold),var(--gold2));-webkit-background-clip:text;background-clip:text;color:transparent}
+p{color:#9b9b9f;margin:12px 0 26px}a{display:inline-block;padding:12px 22px;border-radius:10px;background:linear-gradient(180deg,var(--gold2),var(--gold));color:#1a1205;font-weight:600;text-decoration:none}
+</style></head><body><main><h1>404</h1><p>This page flew off with the drone.<br>Let's get you back to $name's portfolio.</p><a href="$live">Back to home</a></main></body></html>
+HTML;
+}
+
+/* ---------------- Vercel ---------------- */
+
+const VERCEL_DIR = '.deploy/vercel';
+
+function vercel_ready(): bool
+{
+    return is_file(APP_ROOT . '/' . VERCEL_DIR . '/.vercel/project.json');
+}
+
+/** Copy the built site into .deploy/vercel and deploy it to production. Returns the live URL + log. */
+function deploy_vercel(): array
+{
+    $dir = APP_ROOT . '/' . VERCEL_DIR;
+    // Fresh copy of the static site (keep the .vercel project link)
+    foreach (['index.html', '404.html', 'sitemap.xml', 'robots.txt'] as $f) {
+        if (is_file(APP_ROOT . '/' . $f)) copy(APP_ROOT . '/' . $f, "$dir/$f");
+    }
+    foreach ([PUBLISH_MEDIA_DIR, 'assets'] as $d) {
+        publish_rrmdir("$dir/$d");
+        $it = new RecursiveIteratorIterator(new RecursiveDirectoryIterator(APP_ROOT . "/$d", FilesystemIterator::SKIP_DOTS), RecursiveIteratorIterator::SELF_FIRST);
+        foreach ($it as $f) {
+            $to = "$dir/$d/" . $it->getSubPathname();
+            if ($f->isDir()) {
+                if (!is_dir($to)) mkdir($to, 0755, true);
+            } else {
+                if (!is_dir(dirname($to))) mkdir(dirname($to), 0755, true);
+                copy($f->getPathname(), $to);
+            }
+        }
+    }
+    file_put_contents("$dir/vercel.json", json_encode(['cleanUrls' => true, 'trailingSlash' => false], JSON_PRETTY_PRINT));
+
+    $npx = null;
+    foreach (['C:/Program Files/nodejs/npx.cmd', '/usr/local/bin/npx', '/usr/bin/npx'] as $c) if (is_file($c)) { $npx = $c; break; }
+    if (!$npx) throw new RuntimeException('Node.js (npx) was not found, so Vercel could not be updated.');
+    $cmd = PHP_OS_FAMILY === 'Windows'
+        ? ['cmd', '/c', $npx, '--yes', 'vercel@65.16.0', 'deploy', '--prod', '--yes']
+        : [$npx, '--yes', 'vercel@65.16.0', 'deploy', '--prod', '--yes'];
+    $env = getenv() ?: [];
+    if (empty($env['APPDATA']) && !empty($env['USERPROFILE'])) $env['APPDATA'] = $env['USERPROFILE'] . '\\AppData\\Roaming';
+    $env['CI'] = '1';
+    $p = @proc_open($cmd, [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, $dir, $env);
+    if (!is_resource($p)) throw new RuntimeException('Could not start the Vercel tool.');
+    $out = stream_get_contents($pipes[1]) . stream_get_contents($pipes[2]);
+    fclose($pipes[1]); fclose($pipes[2]);
+    $code = proc_close($p);
+    $out = trim(preg_replace('~<claude-code-hint[^>]*/>~', '', $out));
+    if ($code !== 0) {
+        $hint = preg_match('~token|log ?in|credentials~i', $out) ? "\n\nVercel needs you to sign in again: open a terminal and run  npx vercel login" : '';
+        throw new RuntimeException("Vercel deploy failed:\n" . $out . $hint);
+    }
+    preg_match('~Production URL:\s*(https://\S+?)["\s]~', $out . ' ', $m) || preg_match('~(https://[a-z0-9-]+\.vercel\.app)~i', $out, $m);
+    $url = $m[1] ?? '';
+    if ($url) save_setting('vercel_url', rtrim($url, '"'));
+    return ['url' => $url, 'log' => $out];
 }
 
 /* ---------------- Git ---------------- */
@@ -137,8 +271,8 @@ function git_run(array $args, ?string $bin = null): array
 function push_static_site(): array
 {
     $log = [];
-    $add = git_run(['add', '-A', '--', 'index.html', PUBLISH_MEDIA_DIR, '.nojekyll']);
-    $log[] = '$ git add index.html media/' . ($add['out'] ? "\n" . $add['out'] : '');
+    $add = git_run(['add', '-A', '--', 'index.html', '404.html', 'sitemap.xml', 'robots.txt', PUBLISH_MEDIA_DIR, '.nojekyll']);
+    $log[] = '$ git add index.html media/ sitemap.xml robots.txt 404.html' . ($add['out'] ? "\n" . $add['out'] : '');
     if ($add['code'] !== 0) throw new RuntimeException(implode("\n", $log));
 
     $staged = git_run(['diff', '--cached', '--quiet']);

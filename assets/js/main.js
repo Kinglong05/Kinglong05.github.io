@@ -35,7 +35,14 @@
   }));
   document.addEventListener('keydown', e => { if (e.key === 'Escape') nav.classList.remove('open'); });
 
-  const onScroll = () => nav.classList.toggle('scrolled', scrollY > 10);
+  const bar = document.getElementById('scrollBar');
+  const onScroll = () => {
+    nav.classList.toggle('scrolled', scrollY > 10);
+    if (bar) {
+      const max = document.documentElement.scrollHeight - innerHeight;
+      bar.style.transform = `scaleX(${max > 0 ? Math.min(1, scrollY / max) : 0})`;
+    }
+  };
   addEventListener('scroll', onScroll, { passive: true });
   onScroll();
 

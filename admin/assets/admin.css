@@ -295,3 +295,5 @@ details summary { cursor: pointer; margin: 10px 0; }
 
 /* Info banner (stays visible) */
 .alert-info { background: rgba(96,165,250,.08); border-color: rgba(96,165,250,.3); color: #bfdbfe; }
+
+.publish-vercel { margin-right: 6px; }

@@ -133,6 +133,7 @@ $footer = str_replace('{year}', date('Y'), setting('footer_text', '© {year} ' .
 <script type="application/ld+json"><?= json_encode(['@context' => 'https://schema.org', '@type' => 'Person', 'name' => $name, 'url' => $siteUrl, 'sameAs' => array_column($socials, 'url')], JSON_UNESCAPED_SLASHES | JSON_HEX_TAG) ?></script>
 </head>
 <body>
+<div class="scroll-progress" aria-hidden="true"><span id="scrollBar"></span></div>
 <div class="bg-fx" aria-hidden="true"><span class="glow g1"></span><span class="glow g2"></span></div>
 
 <header class="nav" id="nav">
@@ -234,6 +235,22 @@ $footer = str_replace('{year}', date('Y'), setting('footer_text', '© {year} ' .
           </div>
         <?php endforeach; ?>
       </div>
+      <?php if (count($skills) <= 10): // fill the card when there are only a few skills ?>
+      <div class="skill-extra">
+        <?php if ($roles): ?>
+          <div class="sx-block">
+            <span class="sx-label">What I do</span>
+            <div class="sx-chips"><?php foreach ($roles as $r): ?><span><?= e($r) ?></span><?php endforeach; ?></div>
+          </div>
+        <?php endif; ?>
+        <div class="sx-facts">
+          <?php if (setting('hero_badge')): ?><div><span class="pulse"></span><?= e($s['hero_badge']) ?></div><?php endif; ?>
+          <?php if (setting('contact_location')): ?><div><i class="fa-solid fa-location-dot"></i><?= e($s['contact_location']) ?></div><?php endif; ?>
+          <?php if (setting('contact_availability')): ?><div><i class="fa-regular fa-clock"></i><?= e($s['contact_availability']) ?></div><?php endif; ?>
+        </div>
+        <a href="#contact" class="btn btn-outline btn-sm sx-cta">Work with me <i class="fa-solid fa-arrow-right"></i></a>
+      </div>
+      <?php endif; ?>
       <?php if (setting('skills_note')): ?><div class="note-pill"><i class="fa-solid fa-heart"></i><?= e($s['skills_note']) ?></div><?php endif; ?>
     </section>
   </div>
@@ -242,7 +259,8 @@ $footer = str_replace('{year}', date('Y'), setting('footer_text', '© {year} ' .
   <!-- SERVICES -->
   <section id="services" class="card section">
     <?= $label('services') ?>
-    <div class="service-grid">
+    <?php $n = count($services); $svcCols = in_array($n, [4, 8], true) ? 4 : ($n % 3 === 0 ? 3 : ($n <= 2 ? max(1, $n) : 3)); ?>
+    <div class="service-grid" style="--cols: <?= $svcCols ?>">
       <?php foreach ($services as $i => $sv): ?>
         <article class="service reveal" data-delay="<?= $i % 4 ?>">
           <div class="service-head"><span class="ico-box"><i class="<?= e($sv['icon'] ?: 'fa-solid fa-star') ?>"></i></span><h3><?= e($sv['title']) ?></h3></div>
@@ -261,7 +279,7 @@ $footer = str_replace('{year}', date('Y'), setting('footer_text', '© {year} ' .
       <?= $label('projects') ?>
       <?php if ($extra): ?><button class="link-btn" id="viewAll" aria-expanded="false">View all projects <i class="fa-solid fa-arrow-right"></i></button><?php endif; ?>
     </div>
-    <div class="project-grid">
+    <div class="project-grid<?= count($featured) === 1 ? ' single' : (count($featured) === 2 ? ' double' : '') ?>">
       <?php foreach ([...$featured, ...$extra] as $i => $p):
         $isExtra = $i >= count($featured);
         $link = $p['live_url'] ?: $p['repo_url']; ?>
@@ -274,7 +292,7 @@ $footer = str_replace('{year}', date('Y'), setting('footer_text', '© {year} ' .
             <?php endif; ?>
           </div>
           <div class="project-body">
-            <?php if ($tags = split_tags($p['tags'])): ?><span class="tag"><?= e(implode(' + ', $tags)) ?></span><?php endif; ?>
+            <?php if ($tags = split_tags($p['tags'])): ?><div class="tags"><?php foreach ($tags as $t): ?><span class="tag"><?= e($t) ?></span><?php endforeach; ?></div><?php endif; ?>
             <div class="project-row">
               <div>
                 <h3><?= e($p['title']) ?></h3>

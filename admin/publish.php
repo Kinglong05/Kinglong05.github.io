@@ -5,24 +5,37 @@ require APP_ROOT . '/includes/admin_layout.php';
 require APP_ROOT . '/includes/publish.php';
 require_login();
 
-@set_time_limit(180);
+@set_time_limit(420);
 $allowed = publish_allowed();
 $report = null;
 $log = [];
 $error = '';
+$vercel = null;
+$vercelError = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $allowed) {
     require_csrf();
+    $wantVercel = vercel_ready() && (($_POST['vercel'] ?? '0') === '1');
+    save_setting('publish_vercel', $wantVercel ? '1' : '0');
     try {
         $report = build_static_site();
         if (($_POST['op'] ?? '') === 'publish') {
             $log = push_static_site();
             save_setting('last_published', date('c'));
+            if ($wantVercel) {
+                try {
+                    $vercel = deploy_vercel();
+                } catch (Throwable $vx) {
+                    $vercelError = $vx->getMessage(); // GitHub already succeeded; report Vercel separately
+                }
+            }
         }
     } catch (Throwable $ex) {
         $error = $ex->getMessage();
     }
 }
+$vercelUrl = setting('vercel_url');
+$vercelOn = setting('publish_vercel', '1') === '1';
 
 $live = publish_site_url();
 $last = setting('last_published');
@@ -35,6 +48,7 @@ admin_header('Publish', 'publish');
     <div>
       <h2>Publish to GitHub Pages</h2>
       <p class="muted">Your live site: <a class="link" href="<?= e($live) ?>" target="_blank" rel="noopener"><?= e($live) ?></a>
+        <?php if ($vercelUrl): ?> · <a class="link" href="<?= e($vercelUrl) ?>" target="_blank" rel="noopener"><?= e(parse_url($vercelUrl, PHP_URL_HOST)) ?></a><?php endif; ?>
         <?php if ($last): ?> · last published <?= e(time_ago(date('Y-m-d H:i:s', strtotime($last)))) ?><?php endif; ?></p>
     </div>
   </div>
@@ -57,6 +71,9 @@ admin_header('Publish', 'publish');
 
     <form method="post" class="form-actions" data-publish>
       <?= csrf_field() ?>
+      <?php if (vercel_ready()): ?>
+        <label class="switch publish-vercel"><input type="hidden" name="vercel" value="0"><input type="checkbox" name="vercel" value="1"<?= $vercelOn ? ' checked' : '' ?>><span class="slider"></span><span class="switch-label">Also update Vercel</span></label>
+      <?php endif; ?>
       <button class="btn btn-gold" name="op" value="publish"><i class="fa-solid fa-cloud-arrow-up"></i> Publish now</button>
       <button class="btn btn-ghost" name="op" value="build"><i class="fa-solid fa-hammer"></i> Build only (no upload)</button>
       <span class="muted publish-wait" hidden><i class="fa-solid fa-spinner fa-spin"></i> Working... this can take up to a minute.</span>
@@ -70,7 +87,12 @@ admin_header('Publish', 'publish');
   <?php elseif ($report): ?>
     <div class="alert alert-success"><i class="fa-solid fa-circle-check"></i><span>
       <?= $log ? 'Published! Your live site updates in about a minute.' : 'Built index.html (not uploaded).' ?>
-      <?= (int) $report['files'] ?> media files (<?= e((string) $report['mb']) ?> MB). Contact form: <?= e($report['form']) ?>.</span></div>
+      <?= (int) $report['files'] ?> media files (<?= e((string) $report['mb']) ?> MB<?= $report['saved_mb'] > 0 ? ', ' . e((string) $report['saved_mb']) . ' MB saved by optimizing photos' : '' ?>). Contact form: <?= e($report['form']) ?>.
+      <?php if ($vercel): ?><br><i class="fa-solid fa-check"></i> Vercel updated too<?= $vercel['url'] ? ': ' . e($vercel['url']) : '' ?>.<?php endif; ?></span></div>
+    <?php if ($vercelError): ?>
+      <div class="alert alert-warn"><i class="fa-solid fa-triangle-exclamation"></i><span>GitHub Pages was updated, but Vercel wasn't. Details below.</span></div>
+      <pre class="log"><?= e($vercelError) ?></pre>
+    <?php endif; ?>
     <?php if ($report['missing']): ?>
       <div class="alert alert-warn"><i class="fa-solid fa-triangle-exclamation"></i><span>Missing files (skipped): <?= e(implode(', ', $report['missing'])) ?></span></div>
     <?php endif; ?>

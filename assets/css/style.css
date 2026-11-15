@@ -169,7 +169,7 @@ p { margin: 0; }
 .note-pill i { color: var(--gold); font-size: 10px; }
 
 /* ---------- Services ---------- */
-.service-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.service-grid { display: grid; grid-template-columns: repeat(var(--cols, 3), minmax(0, 1fr)); gap: 16px; }
 .service { padding: 22px; border-radius: 14px; border: 1px solid var(--line); background: linear-gradient(180deg, rgba(255,255,255,.035), rgba(255,255,255,.005)); display: flex; flex-direction: column; gap: 14px; transition: transform .3s var(--ease), border-color .3s; }
 .service:hover { transform: translateY(-4px); border-color: var(--gold-line); }
 .service-head { display: flex; align-items: center; gap: 14px; }
@@ -523,3 +523,45 @@ body.lb-open { overflow: hidden; }
   .lb-ext-play { width: 66px; height: 66px; font-size: 22px; }
   .lb-ext-note span { font-size: 12px; }
 }
+
+/* ===========================================================
+   v3 enhancements
+   =========================================================== */
+
+/* Scroll progress bar */
+.scroll-progress { position: fixed; top: 0; left: 0; right: 0; height: 3px; z-index: 60; pointer-events: none; }
+.scroll-progress span { display: block; height: 100%; width: 100%; transform-origin: 0 50%; transform: scaleX(0);
+  background: linear-gradient(90deg, var(--gold-3), var(--gold), var(--gold-2)); box-shadow: 0 0 10px rgba(245,179,53,.6); }
+
+/* Skills card: "What I do" block fills the space when there are few skills */
+.skills { display: flex; flex-direction: column; }
+.skill-extra { margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--line); display: grid; gap: 16px; flex: 1; align-content: start; }
+.sx-label { display: block; font-size: 11px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
+.sx-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.sx-chips span { padding: 7px 13px; border-radius: 999px; font-size: 12.5px; font-weight: 500; color: var(--gold-2); background: var(--gold-soft); border: 1px solid rgba(245,179,53,.25); }
+.sx-facts { display: grid; gap: 9px; font-size: 13px; color: #d4d4d6; }
+.sx-facts div { display: flex; align-items: center; gap: 10px; }
+.sx-facts i { width: 14px; text-align: center; color: var(--gold); }
+.sx-facts .pulse { margin: 0 3px; }
+.sx-cta { justify-self: start; }
+
+/* Project tags as separate pills */
+.tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.tags .tag { align-self: auto; }
+
+/* One featured project: wide card, image beside text */
+.project-grid.single { grid-template-columns: 1fr; }
+.project-grid.single .project:not(.is-extra) { flex-direction: row; }
+.project-grid.single .project:not(.is-extra) .project-thumb { flex: 0 0 56%; aspect-ratio: auto; min-height: 340px; border-bottom: 0; border-right: 1px solid var(--line); }
+.project-grid.single .project:not(.is-extra) .project-body { padding: 28px 30px; justify-content: center; gap: 16px; }
+.project-grid.single .project:not(.is-extra) h3 { font-size: 26px; margin-bottom: 10px; }
+.project-grid.single .project:not(.is-extra) p { font-size: 14px; line-height: 1.7; }
+.project-grid.single .project:not(.is-extra) .project-row { flex-direction: column; align-items: flex-start; }
+.project-grid.double { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (max-width: 960px) {
+  .project-grid.single .project:not(.is-extra) { flex-direction: column; }
+  .project-grid.single .project:not(.is-extra) .project-thumb { flex: none; aspect-ratio: 16 / 10; min-height: 0; border-right: 0; border-bottom: 1px solid var(--line); }
+  .project-grid.single .project:not(.is-extra) .project-body { padding: 18px 20px 22px; }
+  .project-grid.single .project:not(.is-extra) h3 { font-size: 20px; }
+}
+@media (max-width: 640px) { .project-grid.double { grid-template-columns: 1fr; } }

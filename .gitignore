@@ -11,3 +11,6 @@ uploads/*
 Thumbs.db
 .vscode/
 .idea/
+
+# Vercel deploy staging (built by Admin > Publish)
+.deploy/

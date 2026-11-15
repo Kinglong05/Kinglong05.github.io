@@ -425,5 +425,6 @@ function split_lines(string $s): array
 
 function split_tags(?string $s): array
 {
-    return array_values(array_filter(array_map('trim', explode(',', (string) $s)), 'strlen'));
+    // Accepts "React, Node.js" or "React · Node.js" or "React | Node.js"
+    return array_values(array_filter(array_map('trim', preg_split('/\s*(?:,|·|•|\|)\s*/u', (string) $s)), 'strlen'));
 }
