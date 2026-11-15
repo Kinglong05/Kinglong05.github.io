@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /includes/
+Disallow: /database/
+Disallow: /config/
+Disallow: /.deploy/
+
+Sitemap: https://kinglong05.github.io/sitemap.xml
