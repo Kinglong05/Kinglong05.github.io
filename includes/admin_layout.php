@@ -40,6 +40,8 @@ function admin_header(string $title, string $active = ''): void
     <div class="nav-label">Content</div>
     <?php $nav('settings.php', 'fa-solid fa-sliders', 'Site Settings', 'settings'); ?>
     <?php foreach ($entities as $key => $ent) { $nav('manage.php?type=' . $key, $ent['icon'], $ent['label'], 'manage-' . $key); } ?>
+    <div class="nav-label">Website</div>
+    <?php $nav('publish.php', 'fa-solid fa-cloud-arrow-up', 'Publish', 'publish'); ?>
     <div class="nav-label">Account</div>
     <?php $nav('account.php', 'fa-solid fa-user-shield', 'My Account', 'account'); ?>
     <a href="../" target="_blank" rel="noopener"><i class="fa-solid fa-arrow-up-right-from-square"></i><span>View Site</span></a>

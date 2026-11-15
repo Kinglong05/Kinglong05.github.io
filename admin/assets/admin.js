@@ -110,3 +110,9 @@
     setTimeout(() => a.remove(), 400);
   }, 3500));
 })();
+
+// Publish page: show a spinner while publishing
+document.querySelectorAll('form[data-publish]').forEach(f => f.addEventListener('submit', () => {
+  f.querySelector('.publish-wait').hidden = false;
+  setTimeout(() => f.querySelectorAll('button').forEach(b => { b.disabled = true; }), 0);
+}));

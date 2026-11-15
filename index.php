@@ -67,6 +67,7 @@ if ($gallery) {
 }
 $linkLabels = ['facebook' => 'View on Facebook', 'youtube' => 'Watch on YouTube', 'vimeo' => 'Watch on Vimeo', 'drive' => 'Open in Google Drive'];
 foreach ($gallery as &$g) {
+    $g['title_plain'] = trim(str_replace('**', '', (string) $g['title'])); // **gold** markers only make sense on the card
     // What plays: an uploaded video file wins over a link
     $playSrc = !empty($g['video_file']) ? url($g['video_file']) : (string) $g['video_url'];
     $g['video'] = $playSrc !== '' ? video_info($playSrc) : null;
@@ -302,7 +303,7 @@ $footer = str_replace('{year}', date('Y'), setting('footer_text', '© {year} ' .
         $catIcon = GALLERY_ICONS[$g['category']] ?? 'fa-solid fa-image'; ?>
         <div class="g-item g-<?= e($g['layout']) ?><?= $g['live'] ? ' g-live' : '' ?> reveal" data-delay="<?= $i % 4 ?>"
           data-cat="<?= e($g['category']) ?>"
-          data-title="<?= e($g['title']) ?>"
+          data-title="<?= e($g['title_plain']) ?>"
           data-caption="<?= e(implode(' · ', array_filter([trim((string) $g['location']), trim((string) $g['description'])], 'strlen'))) ?>"
           <?php if ($g['link']): ?>data-link="<?= e($g['link']) ?>" data-link-label="<?= e($g['link_label']) ?>" data-link-icon="<?= e($g['link_icon']) ?>"<?php endif; ?>
           <?php if ($g['thumb']): ?>data-cover="<?= e($g['thumb']) ?>"<?php endif; ?>
@@ -311,13 +312,13 @@ $footer = str_replace('{year}', date('Y'), setting('footer_text', '© {year} ' .
             <?php if ($v['kind'] === 'file'): ?>
               <video class="g-embed" src="<?= e($v['inline']) ?>#t=0.5" preload="metadata" controls playsinline></video>
             <?php else: ?>
-              <iframe class="g-embed" src="<?= e($v['inline']) ?>" title="<?= e($g['title']) ?>" loading="lazy" scrolling="no"
+              <iframe class="g-embed" src="<?= e($v['inline']) ?>" title="<?= e($g['title_plain']) ?>" loading="lazy" scrolling="no"
                 allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share; fullscreen" allowfullscreen></iframe>
             <?php endif; ?>
-            <button type="button" class="g-open g-expand" aria-label="Open <?= e($g['title']) ?> full screen" title="Full screen"><i class="fa-solid fa-expand"></i></button>
+            <button type="button" class="g-open g-expand" aria-label="Open <?= e($g['title_plain']) ?> full screen" title="Full screen"><i class="fa-solid fa-expand"></i></button>
           <?php else: ?>
             <?php if ($g['thumb']): ?>
-              <img src="<?= e($g['thumb']) ?>" alt="<?= e($g['title']) ?>" loading="lazy">
+              <img src="<?= e($g['thumb']) ?>" alt="<?= e($g['title_plain']) ?>" loading="lazy">
             <?php else: ?>
               <span class="g-ph g-ph-<?= e($g['category']) ?>"><i class="<?= e($catIcon) ?>"></i></span>
             <?php endif; ?>
@@ -325,10 +326,10 @@ $footer = str_replace('{year}', date('Y'), setting('footer_text', '© {year} ' .
             <?php if (count($g['photos']) > 1): ?><span class="g-count"><i class="fa-regular fa-images"></i> <?= count($g['photos']) ?></span><?php endif; ?>
             <span class="g-info">
               <span class="g-cat"><i class="<?= e($v ? provider_icon($v) : $catIcon) ?>"></i> <?= e(GALLERY_CATEGORIES[$g['category']] ?? $g['category']) ?></span>
-              <b><?= e($g['title']) ?></b>
+              <b><?= hl($g['title']) ?></b>
               <?php if ($g['location']): ?><small><i class="fa-solid fa-location-dot"></i> <?= e($g['location']) ?></small><?php endif; ?>
             </span>
-            <button type="button" class="g-open" aria-label="Open <?= e($g['title']) ?>"></button>
+            <button type="button" class="g-open" aria-label="Open <?= e($g['title_plain']) ?>"></button>
           <?php endif; ?>
         </div>
       <?php endforeach; ?>

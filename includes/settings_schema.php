@@ -57,11 +57,14 @@ return [
             'contact_phone'        => ['type' => 'text', 'label' => 'Phone'],
             'contact_location'     => ['type' => 'text', 'label' => 'Location'],
             'contact_availability' => ['type' => 'text', 'label' => 'Availability'],
+            'formspree_id'         => ['type' => 'text', 'label' => 'Formspree form ID (for the GitHub Pages site)', 'max' => 40,
+                'help' => 'GitHub Pages can\'t run PHP, so the published site sends the contact form through <a href="https://formspree.io" target="_blank" rel="noopener">Formspree</a> (free). Create a form there and paste the ID from its URL, e.g. <code>xyzabcd</code> from formspree.io/f/<b>xyzabcd</b>. Leave empty to open the visitor\'s email app instead. Then click Publish.'],
         ],
     ],
     'seo' => [
         'label' => 'SEO & Sharing', 'icon' => 'fa-solid fa-magnifying-glass',
         'fields' => [
+            'site_url'         => ['type' => 'url', 'label' => 'Live website address', 'help' => 'Where Publish puts your site, e.g. <code>https://kinglong05.github.io/</code>. Used for share links and Google.'],
             'meta_title'       => ['type' => 'text', 'label' => 'Browser tab / Google title'],
             'meta_description' => ['type' => 'textarea', 'label' => 'Meta description', 'rows' => 3, 'help' => 'About 150 characters. Shown in Google results.'],
             'og_image'         => ['type' => 'image', 'label' => 'Social share image', 'help' => '1200×630, shown when your link is shared on Facebook, LinkedIn, Messenger, etc.'],

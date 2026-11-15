@@ -318,14 +318,29 @@
         firstBad.focus();
         return;
       }
+      // Static (GitHub Pages) version without a form service: hand the message to the visitor's email app
+      if (form.dataset.mailto !== undefined) {
+        const f = form.elements;
+        const to = form.dataset.mailto;
+        if (!to) { setStatus('error', 'The contact form is not set up yet.'); return; }
+        const subject = [f.service?.value, f.subject?.value].filter(Boolean).join(' – ') || 'Hello from your portfolio';
+        const body = `${f.message.value}\n\n— ${f.name.value} (${f.email.value})`;
+        location.href = `mailto:${to}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+        setStatus('success', `Opening your email app… If nothing happens, email ${to} directly.`);
+        return;
+      }
       btn.disabled = true;
       const label = btn.querySelector('span');
       const original = label.textContent;
       label.textContent = 'Sending…';
       try {
         const res = await fetch(form.action, { method: 'POST', body: new FormData(form), headers: { Accept: 'application/json' } });
-        const data = await res.json().catch(() => ({ ok: false, message: 'Something went wrong. Please try again.' }));
-        setStatus(data.ok ? 'success' : 'error', data.message);
+        const data = await res.json().catch(() => ({ ok: false }));
+        // Works with contact.php ({ok, message}) and Formspree ({ok} / {errors: [...]})
+        const msg = data.message
+          || (Array.isArray(data.errors) && data.errors.map(x => x.message).join(' '))
+          || (data.ok ? "Thanks! Your message has been sent. I'll get back to you soon." : 'Something went wrong. Please try again.');
+        setStatus(data.ok ? 'success' : 'error', msg);
         if (data.ok) form.reset();
       } catch {
         setStatus('error', 'Network error. Please check your connection and try again.');
