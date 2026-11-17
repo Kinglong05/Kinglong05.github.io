@@ -347,3 +347,34 @@ tbody.saved tr { transition: background .6s; background: rgba(74,222,128,.06); }
 .qr-card-panel { margin-bottom: 18px; }
 .qr-card h3 { font-size: 16px; margin-bottom: 6px; }
 .qr-card h3 i { color: var(--gold); margin-right: 6px; }
+
+
+/* Photo crop tool */
+.crop-modal { position: fixed; inset: 0; z-index: 300; display: grid; place-items: center; padding: 20px; background: rgba(0,0,0,.82); backdrop-filter: blur(4px); }
+.crop-modal[hidden] { display: none; }
+body.crop-open { overflow: hidden; }
+.crop-dialog { width: min(960px, 100%); max-height: calc(100vh - 40px); display: grid; grid-template-rows: auto minmax(0, 1fr) auto auto; gap: 14px; padding: 18px; border-radius: 16px; background: var(--panel); border: 1px solid var(--line-2); box-shadow: 0 30px 80px -20px #000; }
+.crop-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.crop-head h3 { font-size: 17px; }
+.crop-head h3 i { color: var(--gold); margin-right: 6px; }
+.crop-size { font-size: 12.5px; }
+.crop-stage { min-height: 280px; height: min(62vh, 560px); background: repeating-conic-gradient(#1c1c1c 0% 25%, #141414 0% 50%) 50% / 20px 20px; border-radius: 10px; overflow: hidden; }
+.crop-stage img { display: block; max-width: 100%; }
+.crop-tools { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.crop-ratios { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip-btn { padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line-2); background: transparent; color: #ccc; font-size: 12.5px; transition: .15s; }
+.chip-btn:hover { border-color: var(--gold-line); color: #fff; }
+.chip-btn.active { background: var(--gold-soft); border-color: var(--gold); color: var(--gold); }
+.chip-btn i { font-size: 9px; color: var(--gold); }
+.crop-actions-mini { display: flex; gap: 6px; }
+.crop-foot { display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
+.cropper-view-box, .cropper-face { border-radius: 0; }
+.cropper-view-box { outline: 2px solid var(--gold); outline-color: rgba(245,179,53,.9); }
+.cropper-line, .cropper-point { background-color: var(--gold); }
+.upload-controls .btn-sm { justify-self: start; }
+@media (max-width: 600px) { .crop-stage { height: 50vh; } .crop-foot .btn { flex: 1; } }
+
+/* Gold crop frame (beats the library default) */
+.crop-modal .cropper-view-box { outline: 2px solid rgba(245,179,53,.95); }
+.crop-modal .cropper-line, .crop-modal .cropper-point { background-color: #f5b335; }
+.crop-modal .cropper-point.point-se { width: 10px; height: 10px; }

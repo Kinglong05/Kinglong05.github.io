@@ -200,3 +200,166 @@ document.querySelectorAll('form[data-publish]').forEach(f => f.addEventListener(
     document.body.appendChild(a); a.click(); a.remove();
   }));
 })();
+
+
+/* ===================== Photo crop tool ===================== */
+(() => {
+  if (typeof window.Cropper !== 'function' || typeof DataTransfer !== 'function') return; // old browser: plain upload
+  const $ = (s, c = document) => c.querySelector(s);
+  const $$ = (s, c = document) => [...c.querySelectorAll(s)];
+
+  const RATIOS = [
+    ['Free', NaN], ['Original', 'orig'], ['1:1', 1], ['4:5', 4 / 5], ['2:3', 2 / 3], ['3:2', 3 / 2], ['16:9', 16 / 9], ['16:10', 16 / 10],
+  ];
+  const parseRatio = s => {
+    if (!s) return null;
+    const [w, h] = String(s).split('/').map(Number);
+    return w > 0 && h > 0 ? w / h : null;
+  };
+
+  // Build the modal once
+  const modal = document.createElement('div');
+  modal.className = 'crop-modal';
+  modal.hidden = true;
+  modal.innerHTML = `
+    <div class="crop-dialog" role="dialog" aria-modal="true" aria-label="Crop photo">
+      <div class="crop-head"><h3><i class="fa-solid fa-crop-simple"></i> Crop photo</h3><span class="crop-size muted"></span></div>
+      <div class="crop-stage"><img alt=""></div>
+      <div class="crop-tools">
+        <div class="crop-ratios"></div>
+        <div class="crop-actions-mini">
+          <button type="button" class="icon-btn" data-act="rotL" title="Rotate left"><i class="fa-solid fa-rotate-left"></i></button>
+          <button type="button" class="icon-btn" data-act="rotR" title="Rotate right"><i class="fa-solid fa-rotate-right"></i></button>
+          <button type="button" class="icon-btn" data-act="flip" title="Flip"><i class="fa-solid fa-left-right"></i></button>
+          <button type="button" class="icon-btn" data-act="reset" title="Reset"><i class="fa-solid fa-arrows-rotate"></i></button>
+        </div>
+      </div>
+      <div class="crop-foot">
+        <button type="button" class="btn btn-ghost" data-act="skip">Use without cropping</button>
+        <button type="button" class="btn btn-gold" data-act="apply"><i class="fa-solid fa-check"></i> Crop &amp; use</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+  const img = $('.crop-stage img', modal);
+  const ratioBox = $('.crop-ratios', modal);
+  const sizeLbl = $('.crop-size', modal);
+  let cropper = null, input = null, file = null, suggested = null, flipped = 1, url = null;
+
+  const setRatioButtons = active => {
+    ratioBox.innerHTML = '';
+    RATIOS.forEach(([label, val]) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'chip-btn' + (label === active ? ' active' : '');
+      const isSuggested = suggested && typeof val === 'number' && Math.abs(val - suggested) < 0.01;
+      b.innerHTML = label + (isSuggested ? ' <i class="fa-solid fa-star" title="Best for this spot"></i>' : '');
+      b.addEventListener('click', () => {
+        const r = val === 'orig' ? img.naturalWidth / img.naturalHeight : val;
+        cropper.setAspectRatio(r);
+        $$('.chip-btn', ratioBox).forEach(x => x.classList.toggle('active', x === b));
+      });
+      ratioBox.appendChild(b);
+    });
+    // The field's own shape (e.g. 1200/630) if it isn't one of the presets
+    if (suggested && !RATIOS.some(([, v]) => typeof v === 'number' && Math.abs(v - suggested) < 0.01)) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'chip-btn' + (active === 'suggested' ? ' active' : '');
+      b.innerHTML = 'Best fit <i class="fa-solid fa-star"></i>';
+      b.addEventListener('click', () => { cropper.setAspectRatio(suggested); $$('.chip-btn', ratioBox).forEach(x => x.classList.toggle('active', x === b)); });
+      ratioBox.prepend(b);
+    }
+  };
+
+  const close = () => {
+    modal.hidden = true;
+    document.body.classList.remove('crop-open');
+    if (cropper) { cropper.destroy(); cropper = null; }
+    if (url) { URL.revokeObjectURL(url); url = null; }
+  };
+
+  const open = (theInput, theFile) => {
+    input = theInput; file = theFile; flipped = 1;
+    suggested = parseRatio(input.dataset.aspect);
+    url = URL.createObjectURL(file);
+    img.src = url;
+    modal.hidden = false;
+    document.body.classList.add('crop-open');
+    img.onload = () => {
+      cropper = new window.Cropper(img, {
+        viewMode: 1, autoCropArea: 1, background: false, responsive: true, checkOrientation: true,
+        aspectRatio: suggested || NaN,
+        crop: e => { sizeLbl.textContent = `${Math.round(e.detail.width)} × ${Math.round(e.detail.height)} px`; },
+      });
+      let active = 'Free';
+      if (suggested) {
+        const preset = RATIOS.find(([, v]) => typeof v === 'number' && Math.abs(v - suggested) < 0.01);
+        active = preset ? preset[0] : 'suggested';
+      }
+      setRatioButtons(active);
+    };
+  };
+
+  const useFile = f => {
+    const dt = new DataTransfer();
+    dt.items.add(f);
+    input.files = dt.files;
+    input._skipCrop = true;
+    input.dispatchEvent(new Event('change', { bubbles: true })); // refreshes the preview
+    // remember it was cropped (the "Remove current" box should not stay ticked)
+    const rm = input.closest('.upload-controls')?.querySelector('input[name^="remove_"]');
+    if (rm) rm.checked = false;
+  };
+
+  modal.addEventListener('click', async e => {
+    const act = e.target.closest('[data-act]')?.dataset.act;
+    if (!act) { if (e.target === modal) close(); return; }
+    if (act === 'rotL') cropper.rotate(-90);
+    if (act === 'rotR') cropper.rotate(90);
+    if (act === 'flip') { flipped *= -1; cropper.scaleX(flipped); }
+    if (act === 'reset') { cropper.reset(); flipped = 1; }
+    if (act === 'skip') { if (input.dataset.fromExisting) { input.value = ''; } close(); }
+    if (act === 'apply') {
+      const btn = e.target.closest('button');
+      btn.disabled = true;
+      // Keep transparency for PNG/WebP; photos become high-quality JPEG
+      const type = /png|webp/.test(file.type) ? 'image/png' : 'image/jpeg';
+      const canvas = cropper.getCroppedCanvas({ maxWidth: 2600, maxHeight: 2600, imageSmoothingQuality: 'high', fillColor: type === 'image/jpeg' ? '#fff' : 'transparent' });
+      canvas.toBlob(blob => {
+        btn.disabled = false;
+        if (!blob) { alert('Could not crop this photo. It will be uploaded as it is.'); close(); return; }
+        const name = file.name.replace(/\.\w+$/, '') + (type === 'image/png' ? '.png' : '.jpg');
+        useFile(new File([blob], name, { type }));
+        close();
+      }, type, 0.92);
+    }
+  });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !modal.hidden) close(); });
+
+  // New photo chosen -> open the crop tool
+  $$('input[type=file][data-crop]').forEach(inp => inp.addEventListener('change', () => {
+    if (inp._skipCrop) { inp._skipCrop = false; return; }
+    const f = inp.files?.[0];
+    if (!f || !/^image\/(jpeg|png|webp)$/.test(f.type)) return; // GIFs upload as they are
+    delete inp.dataset.fromExisting;
+    open(inp, f);
+  }));
+
+  // "Crop current photo" -> load the uploaded photo into the crop tool
+  $$('[data-crop-existing]').forEach(btn => btn.addEventListener('click', async () => {
+    const inp = document.getElementById(btn.dataset.for);
+    if (!inp) return;
+    btn.disabled = true;
+    try {
+      const res = await fetch(btn.dataset.cropExisting, { cache: 'no-store' });
+      const blob = await res.blob();
+      const name = btn.dataset.cropExisting.split('/').pop().split('?')[0] || 'photo.jpg';
+      inp.dataset.fromExisting = '1';
+      open(inp, new File([blob], name, { type: blob.type || 'image/jpeg' }));
+    } catch {
+      alert('Could not load the current photo.');
+    } finally {
+      btn.disabled = false;
+    }
+  }));
+})();

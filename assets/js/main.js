@@ -817,3 +817,47 @@
     addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(size, 150); });
   });
 })();
+
+
+/* ===================== Phones: gold touch "cursor" ===================== */
+(() => {
+  const touch = matchMedia('(pointer: coarse)').matches;
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (!touch || reduce || !document.body.classList.contains('has-cursor')) return;
+
+  const dot = document.createElement('div');
+  dot.className = 'touch-dot';
+  dot.setAttribute('aria-hidden', 'true');
+  document.body.appendChild(dot);
+  const place = (x, y) => { dot.style.transform = `translate(${x}px, ${y}px)`; };
+
+  const ripple = (x, y) => {
+    const r = document.createElement('span');
+    r.className = 'touch-ripple';
+    r.setAttribute('aria-hidden', 'true');
+    r.style.left = x + 'px';
+    r.style.top = y + 'px';
+    document.body.appendChild(r);
+    r.addEventListener('animationend', () => r.remove(), { once: true });
+    setTimeout(() => r.remove(), 1200); // safety net
+  };
+
+  // Follows the finger while it's on the screen; never blocks scrolling or taps
+  addEventListener('touchstart', e => {
+    const t = e.touches[0];
+    if (!t) return;
+    place(t.clientX, t.clientY);
+    dot.classList.add('on');
+  }, { passive: true });
+  addEventListener('touchmove', e => {
+    const t = e.touches[0];
+    if (t) place(t.clientX, t.clientY);
+  }, { passive: true });
+  const end = e => {
+    const t = e.changedTouches[0];
+    dot.classList.remove('on');
+    if (t) ripple(t.clientX, t.clientY);
+  };
+  addEventListener('touchend', end, { passive: true });
+  addEventListener('touchcancel', () => dot.classList.remove('on'), { passive: true });
+})();
