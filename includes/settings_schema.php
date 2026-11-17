@@ -48,6 +48,8 @@ return [
             'showreel_file'  => ['type' => 'video', 'label' => 'Or upload the showreel (MP4)', 'help' => 'Used instead of the link. Keep it short and under ' . max_video_mb() . ' MB.'],
             'showreel_label' => ['type' => 'text', 'label' => 'Showreel button text', 'max' => 40],
             'hero_image'    => ['type' => 'image', 'label' => 'Portrait', 'help' => 'Best: a PNG with a transparent background (use remove.bg), roughly 800×900.'],
+            'hero_image_hover' => ['type' => 'image', 'label' => 'Second portrait (revealed on hover with a dissolve effect)',
+                'help' => 'Optional. When visitors hover over your portrait, it dissolves into this photo (tap on phones). Use the same size and framing as the main portrait (transparent PNG), e.g. you holding your camera or drone.'],
             'stat1_value'   => ['type' => 'text', 'label' => 'Stat 1 value', 'half' => true],
             'stat1_label'   => ['type' => 'text', 'label' => 'Stat 1 label', 'half' => true],
             'stat2_value'   => ['type' => 'text', 'label' => 'Stat 2 value', 'half' => true],

@@ -243,7 +243,11 @@ $footer = str_replace('{year}', date('Y'), setting('footer_text', '© {year} ' .
         <span class="fb fb3" title="Video"><i class="fa-solid fa-video"></i></span>
         <span class="fb fb4" title="Drone"><i class="icon-drone"></i></span>
       </div>
-      <img class="hero-img" src="<?= e($heroImg) ?>" alt="Portrait of <?= e($name) ?>" width="560" height="640" fetchpriority="high">
+      <?php $heroHover = setting('hero_image_hover') ? url($s['hero_image_hover']) : ''; ?>
+      <div class="hero-photo"<?= $heroHover ? ' data-dissolve' : '' ?>>
+        <?php if ($heroHover): ?><img class="hero-img hero-img-b" src="<?= e($heroHover) ?>" alt="" aria-hidden="true" decoding="async"><?php endif; ?>
+        <img class="hero-img hero-img-a" src="<?= e($heroImg) ?>" alt="Portrait of <?= e($name) ?>" width="560" height="640" fetchpriority="high">
+      </div>
       <?php if ($stats): ?>
       <div class="stats glass">
         <?php foreach ($stats as [$icon, $val, $lbl]): ?>

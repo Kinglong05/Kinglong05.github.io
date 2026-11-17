@@ -659,3 +659,161 @@
     new IntersectionObserver(([en]) => bar.classList.toggle('away', en.isIntersecting), { threshold: 0.15 }).observe(contact);
   }
 })();
+
+
+/* ===================== v5: hero portrait dissolve ===================== */
+(() => {
+  const box = document.querySelector('[data-dissolve]');
+  if (!box) return;
+  const a = box.querySelector('.hero-img-a');
+  const b = box.querySelector('.hero-img-b');
+  const zone = box.closest('.hero-visual') || box;
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const canHover = matchMedia('(hover: hover)').matches;
+  let target = 0;
+
+  const onTarget = fn => {
+    if (canHover) {
+      zone.addEventListener('mouseenter', () => fn(1));
+      zone.addEventListener('mouseleave', () => fn(0));
+    }
+    box.addEventListener('click', () => fn(target ? 0 : 1)); // tap on phones
+  };
+
+  // Gentle fallback: simple cross-fade
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext && canvas.getContext('2d');
+  if (reduce || !ctx) {
+    box.classList.add('fade-swap');
+    onTarget(v => { target = v; box.classList.toggle('swapped', v === 1); });
+    return;
+  }
+
+  canvas.className = 'hero-dissolve';
+  canvas.setAttribute('aria-hidden', 'true');
+  const mask = document.createElement('canvas');
+  const edge = document.createElement('canvas');
+  const mctx = mask.getContext('2d');
+  const ectx = edge.getContext('2d');
+  const CELL = 4;       // size of the dissolve "pixels"
+  const EDGE = 0.09;    // width of the glowing gold edge
+  let W = 0, H = 0, NW = 0, NH = 0, noise = null, t = 0, raf = 0;
+
+  // Organic noise: smooth blobs + fine grain, so the photo breaks apart like dust
+  const buildNoise = () => {
+    NW = Math.max(1, Math.ceil(W / CELL));
+    NH = Math.max(1, Math.ceil(H / CELL));
+    mask.width = edge.width = NW;
+    mask.height = edge.height = NH;
+    const G = 9;
+    const gw = Math.ceil(NW / G) + 2, gh = Math.ceil(NH / G) + 2;
+    const grid = new Float32Array(gw * gh);
+    for (let i = 0; i < grid.length; i++) grid[i] = Math.random();
+    const sm = v => v * v * (3 - 2 * v);
+    noise = new Float32Array(NW * NH);
+    let lo = 1, hi = 0;
+    for (let y = 0; y < NH; y++) {
+      for (let x = 0; x < NW; x++) {
+        const gx = x / G, gy = y / G, x0 = gx | 0, y0 = gy | 0, fx = sm(gx - x0), fy = sm(gy - y0);
+        const v00 = grid[y0 * gw + x0], v10 = grid[y0 * gw + x0 + 1], v01 = grid[(y0 + 1) * gw + x0], v11 = grid[(y0 + 1) * gw + x0 + 1];
+        const v = (v00 * (1 - fx) + v10 * fx) * (1 - fy) + (v01 * (1 - fx) + v11 * fx) * fy;
+        const n = v * 0.7 + Math.random() * 0.3 + (1 - y / NH) * 0.12; // starts slightly from the top
+        noise[y * NW + x] = n;
+        if (n < lo) lo = n;
+        if (n > hi) hi = n;
+      }
+    }
+    for (let i = 0; i < noise.length; i++) noise[i] = (noise[i] - lo) / (hi - lo || 1);
+  };
+
+  // Second photo is drawn "contained" and bottom-aligned in the same box (like the CSS of the first)
+  const bc = document.createElement('canvas');
+  const bctx = bc.getContext('2d');
+  let bRect = [0, 0, 1, 1];
+  const drawB = (c, cw, ch) => c.drawImage(b, bRect[0], bRect[1], bRect[2], bRect[3]);
+
+  const draw = () => {
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.clearRect(0, 0, W, H);
+    if (t >= 1) { drawB(ctx); return; }       // fully dissolved: only the second photo
+    ctx.drawImage(a, 0, 0, W, H);
+    if (t <= 0) return;                       // untouched: only the first photo
+    const th = t * (1 + EDGE) - EDGE;
+    const mi = mctx.createImageData(NW, NH);
+    const ei = ectx.createImageData(NW, NH);
+    for (let i = 0; i < noise.length; i++) {
+      const n = noise[i];
+      if (n < th) {
+        mi.data[i * 4 + 3] = 255;              // removed
+      } else if (n < th + EDGE) {
+        const k = 1 - (n - th) / EDGE;         // 1 at the edge, 0 further in
+        const p = i * 4;
+        ei.data[p] = 255;
+        ei.data[p + 1] = 214 - k * 70 | 0;     // bright gold -> deep amber
+        ei.data[p + 2] = 120 - k * 90 | 0;
+        ei.data[p + 3] = k * 235 | 0;
+      }
+    }
+    mctx.putImageData(mi, 0, 0);
+    ectx.putImageData(ei, 0, 0);
+    ctx.imageSmoothingEnabled = false;
+    // 1) cut the dissolved pixels out of the first photo
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.drawImage(mask, 0, 0, W, H);
+    // 2) the second photo appears ONLY in those dissolved pixels (behind what's left of the first)
+    bctx.setTransform(1, 0, 0, 1, 0, 0);
+    bctx.globalCompositeOperation = 'source-over';
+    bctx.clearRect(0, 0, bc.width, bc.height);
+    bctx.imageSmoothingEnabled = true;
+    drawB(bctx);
+    bctx.imageSmoothingEnabled = false;
+    bctx.globalCompositeOperation = 'destination-in';
+    bctx.drawImage(mask, 0, 0, W, H);
+    ctx.globalCompositeOperation = 'destination-over';
+    ctx.drawImage(bc, 0, 0, W, H);
+    // 3) glowing gold edge, only on photo pixels (not the empty background)
+    ctx.globalCompositeOperation = 'source-atop';
+    ctx.drawImage(edge, 0, 0, W, H);
+    ctx.globalCompositeOperation = 'source-over';
+  };
+
+  const step = () => {
+    const speed = 0.018;
+    if (Math.abs(target - t) <= speed) t = target; else t += target > t ? speed : -speed;
+    draw();
+    box.classList.toggle('revealed', t >= 1);
+    raf = t !== target ? requestAnimationFrame(step) : 0;
+  };
+  const go = v => {
+    target = v;
+    if (!raf) raf = requestAnimationFrame(step);
+    if (v && typeof window.gtag === 'function') window.gtag('event', 'portrait_reveal');
+  };
+
+  const size = () => {
+    W = Math.max(1, Math.round(a.offsetWidth));
+    H = Math.max(1, Math.round(a.offsetHeight));
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    canvas.width = Math.round(W * dpr);
+    canvas.height = Math.round(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    bc.width = W; bc.height = H;
+    const s = Math.min(W / b.naturalWidth, H / b.naturalHeight);
+    const bw = b.naturalWidth * s, bh = b.naturalHeight * s;
+    bRect = [(W - bw) / 2, H - bh, bw, bh];
+    buildNoise();
+    draw();
+  };
+  box.dissolveTo = v => { t = Math.max(0, Math.min(1, v)); draw(); }; // handy for testing
+
+  const loaded = img => img.complete && img.naturalWidth ? Promise.resolve() : new Promise(r => { img.addEventListener('load', r, { once: true }); img.addEventListener('error', r, { once: true }); });
+  Promise.all([loaded(a), loaded(b)]).then(() => {
+    if (!a.naturalWidth || !b.naturalWidth) return;  // a photo failed to load: leave the page as is
+    box.appendChild(canvas);
+    box.classList.add('dissolve-ready');
+    size();
+    onTarget(go);
+    let rt = 0;
+    addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(size, 150); });
+  });
+})();
