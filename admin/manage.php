@@ -13,6 +13,9 @@ if (!isset($entities[$type])) {
 $ent = $entities[$type];
 $fields = $ent['fields'];
 $table = $type; // whitelisted by $entities keys
+$albumCfg = $ent['album'] ?? null; // photo albums (gallery, client galleries)
+$aT = $albumCfg['table'] ?? '';    // table/column names come from config, never from user input
+$aF = $albumCfg['fk'] ?? '';
 $self = 'manage.php?type=' . urlencode($type);
 
 function find_row(string $table, int $id): ?array
@@ -32,9 +35,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $op = (string) ($_POST['op'] ?? '');
     $id = (int) ($_POST['id'] ?? 0);
 
-    /* ---- Album photos (gallery only) ---- */
-    if ($type === 'gallery' && in_array($op, ['album_upload', 'album_delete', 'album_clear'], true)) {
-        $wantsJson = str_contains((string) ($_SERVER['HTTP_ACCEPT'] ?? ''), 'application/json');
+    $wantsJson = str_contains((string) ($_SERVER['HTTP_ACCEPT'] ?? ''), 'application/json');
+
+    /* ---- Drag-and-drop reordering (any section) ---- */
+    if ($op === 'reorder') {
+        $ids = array_values(array_filter(array_map('intval', (array) ($_POST['ids'] ?? [])), fn($i) => $i > 0));
+        $st = db()->prepare("UPDATE `$table` SET sort_order = ? WHERE id = ?");
+        foreach ($ids as $pos => $rid) $st->execute([$pos + 1, $rid]);
+        if ($wantsJson) { header('Content-Type: application/json'); echo json_encode(['ok' => true]); exit; }
+        redirect($self);
+    }
+
+    /* ---- Bulk upload: each photo becomes its own gallery item ---- */
+    if ($op === 'bulk_upload' && !empty($ent['bulk'])) {
+        $cat = array_key_exists($_POST['category'] ?? '', GALLERY_CATEGORIES) ? $_POST['category'] : 'photography';
+        $f = $_FILES['photo'] ?? null;
+        $res = ['ok' => false, 'error' => 'No photo received.'];
+        if ($f && !is_array($f['name'])) {
+            try {
+                $path = handle_upload('photo', 'image');
+                $title = ucwords(trim(preg_replace('~[_-]+~', ' ', pathinfo((string) $f['name'], PATHINFO_FILENAME))));
+                $title = preg_match('~^(img|dsc|dji|pxl|photo|image)?\s*\d+~i', $title) || $title === '' ? 'Untitled photo' : mb_substr($title, 0, 150);
+                $next = (int) db()->query('SELECT COALESCE(MAX(sort_order), 0) + 1 FROM gallery')->fetchColumn();
+                db()->prepare("INSERT INTO gallery (title, category, media_type, image, layout, sort_order, is_visible) VALUES (?, ?, 'photo', ?, 'normal', ?, ?)")
+                    ->execute([$title, $cat, $path, $next, (($_POST['visible'] ?? '1') === '1') ? 1 : 0]);
+                $res = ['ok' => true];
+            } catch (RuntimeException $ex) {
+                $res = ['ok' => false, 'error' => ($f['name'] ?? 'photo') . ': ' . $ex->getMessage()];
+            }
+        }
+        header('Content-Type: application/json');
+        echo json_encode($res);
+        exit;
+    }
+
+    /* ---- Album photos (gallery, client galleries) ---- */
+    if ($albumCfg && in_array($op, ['album_upload', 'album_delete', 'album_clear'], true)) {
         $back = $self . '&action=edit&id=' . $id . '#album';
         if (!$id || !find_row($table, $id)) redirect($self);
 
@@ -43,10 +79,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $errs = [];
             $files = $_FILES['photos'] ?? null;
             if ($files && is_array($files['name'])) {
-                $st = db()->prepare('SELECT COALESCE(MAX(sort_order), 0) FROM gallery_photos WHERE gallery_id = ?');
+                $st = db()->prepare("SELECT COALESCE(MAX(sort_order), 0) FROM `$aT` WHERE `$aF` = ?");
                 $st->execute([$id]);
                 $next = (int) $st->fetchColumn();
-                $ins = db()->prepare('INSERT INTO gallery_photos (gallery_id, image, sort_order) VALUES (?, ?, ?)');
+                $ins = db()->prepare("INSERT INTO `$aT` (`$aF`, image, sort_order) VALUES (?, ?, ?)");
                 foreach ($files['name'] as $k => $fileName) {
                     if ($files['error'][$k] === UPLOAD_ERR_NO_FILE) continue;
                     $_FILES['__album_one'] = ['name' => $fileName, 'type' => $files['type'][$k], 'tmp_name' => $files['tmp_name'][$k], 'error' => $files['error'][$k], 'size' => $files['size'][$k]];
@@ -72,10 +108,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         if ($op === 'album_delete') {
-            $st = db()->prepare('SELECT image FROM gallery_photos WHERE id = ? AND gallery_id = ?');
+            $st = db()->prepare("SELECT image FROM `$aT` WHERE id = ? AND `$aF` = ?");
             $st->execute([(int) ($_POST['photo_id'] ?? 0), $id]);
             if ($img = $st->fetchColumn()) {
-                db()->prepare('DELETE FROM gallery_photos WHERE id = ? AND gallery_id = ?')->execute([(int) $_POST['photo_id'], $id]);
+                db()->prepare("DELETE FROM `$aT` WHERE id = ? AND `$aF` = ?")->execute([(int) $_POST['photo_id'], $id]);
                 delete_upload($img);
                 flash('success', 'Photo removed from the album.');
             }
@@ -83,8 +119,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         if ($op === 'album_clear') {
-            foreach (album_photos($id) as $p) delete_upload($p['image']);
-            db()->prepare('DELETE FROM gallery_photos WHERE gallery_id = ?')->execute([$id]);
+            foreach (album_rows($aT, $aF, $id) as $p) delete_upload($p['image']);
+            db()->prepare("DELETE FROM `$aT` WHERE `$aF` = ?")->execute([$id]);
             flash('success', 'Album cleared.');
             redirect($back);
         }
@@ -92,8 +128,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($op === 'delete' && $id) {
         $row = find_row($table, $id);
-        if ($row && $type === 'gallery') {
-            foreach (album_photos($id) as $p) delete_upload($p['image']); // rows go via ON DELETE CASCADE
+        if ($row && $albumCfg) {
+            foreach (album_rows($aT, $aF, $id) as $p) delete_upload($p['image']); // rows go via ON DELETE CASCADE
         }
         if ($row) {
             db()->prepare("DELETE FROM `$table` WHERE id = ?")->execute([$id]);
@@ -133,6 +169,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $data[$name] = collect_field($name, $def, $existing[$name] ?? null, $errors, $tx);
         }
         $data['is_visible'] = (($_POST['is_visible'] ?? '0') === '1') ? 1 : 0;
+        // Unique link names for client galleries and project case studies
+        $uniqueSlug = function (string $want, string $col, string $tbl) use ($id): string {
+            $slug = slugify($want);
+            $base = $slug;
+            $chk = db()->prepare("SELECT COUNT(*) FROM `$tbl` WHERE `$col` = ? AND id <> ?");
+            for ($n = 2; ; $n++) {
+                $chk->execute([$slug, $id]);
+                if ((int) $chk->fetchColumn() === 0) return $slug;
+                $slug = $base . '-' . $n;
+            }
+        };
+        if ($type === 'proofs' && !$errors) {
+            $data['slug'] = $uniqueSlug(($data['slug'] ?? '') !== '' ? (string) $data['slug'] : (string) $data['title'], 'slug', 'proofs');
+        }
+        if ($type === 'projects' && !$errors) {
+            $data['case_slug'] = trim((string) ($data['case_study'] ?? '')) === '' ? null
+                : $uniqueSlug(($data['case_slug'] ?? '') !== '' ? (string) $data['case_slug'] : (string) $data['title'], 'case_slug', 'projects');
+        }
         if ($type === 'posts' && !$errors) {
             // Link name: from the title if empty, and never the same as another story
             $slug = slugify((string) (($data['slug'] ?? '') !== '' ? $data['slug'] : $data['title']));
@@ -242,12 +296,18 @@ if ($action === 'new' || $action === 'edit') {
       </div>
     </form>
 
-    <?php if ($type === 'gallery'): ?>
+    <?php if ($albumCfg): ?>
+    <?php if ($type === 'proofs' && $isEdit):
+        $proofUrl = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'], 2)), '/') . '/proof.php?g=' . rawurlencode((string) $formRow['slug']);
+        $proofFull = ((!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . $proofUrl; ?>
+      <div class="alert alert-info"><i class="fa-solid fa-link"></i><span><b>Private link:</b> <a href="<?= e($proofUrl) ?>" target="_blank" rel="noopener"><?= e($proofFull) ?></a> · access code <code><?= e((string) $formRow['access_code']) ?></code><br>
+        <small>Client galleries need a PHP host (XAMPP or InfinityFree). They are never published to GitHub Pages or Vercel. On your live PHP host the link becomes <code>https://your-site/proof.php?g=<?= e((string) $formRow['slug']) ?></code>.</small></span></div>
+    <?php endif; ?>
     <section class="panel album" id="album">
       <?php if (!$isEdit): ?>
         <div class="panel-head"><h3><i class="fa-solid fa-images"></i> Album photos</h3></div>
-        <p class="muted">Save this item first, then you can add all the photos from the shoot here.</p>
-      <?php else: $album = album_photos((int) $formRow['id']); ?>
+        <p class="muted">Save this item first, then you can add all the photos here.</p>
+      <?php else: $album = album_rows($aT, $aF, (int) $formRow['id']); ?>
         <div class="panel-head">
           <h3><i class="fa-solid fa-images"></i> Album photos <span class="pill"><?= count($album) ?></span></h3>
           <?php if ($album): ?>
@@ -256,7 +316,7 @@ if ($action === 'new' || $action === 'edit') {
             <button class="btn btn-sm btn-danger"><i class="fa-solid fa-trash"></i> Remove all</button></form>
           <?php endif; ?>
         </div>
-        <p class="help">Add every photo from this shoot. Visitors can click through them on your site, with a "View on Facebook" button if you added a link.
+        <p class="help"><?= e($albumCfg['note'] ?? '') ?>
           Big camera photos are resized automatically before upload. <b>Tip:</b> on your Facebook page, open the album → <i>⋯</i> → <i>Download album</i>, unzip it, and select all the photos here.</p>
         <form class="album-upload" method="post" action="<?= e($self) ?>" enctype="multipart/form-data" data-album-upload>
           <?= csrf_field() ?>
@@ -300,9 +360,27 @@ foreach ($ent['columns'] as $c => $_) {
 admin_header($ent['label'], 'manage-' . $type);
 ?>
 <div class="toolbar">
-  <p class="muted"><?= count($rows) ?> item<?= count($rows) === 1 ? '' : 's' ?>. Use the arrows to change the order they appear on your site.</p>
+  <p class="muted"><?= count($rows) ?> item<?= count($rows) === 1 ? '' : 's' ?>. <b>Drag <i class="fa-solid fa-grip-vertical"></i> rows</b> (or use the arrows) to change the order they appear on your site.</p>
   <a class="btn btn-gold" href="<?= e($self) ?>&action=new"><i class="fa-solid fa-plus"></i> Add <?= e(strtolower($ent['singular'])) ?></a>
 </div>
+
+<?php if (!empty($ent['bulk'])): ?>
+<details class="panel bulk-panel"<?= $rows ? '' : ' open' ?>>
+  <summary><i class="fa-solid fa-cloud-arrow-up"></i> <b>Bulk upload</b> <span class="muted">· add many photos at once (each becomes its own gallery item)</span></summary>
+  <form class="bulk-upload" method="post" action="<?= e($self) ?>" data-bulk-upload>
+    <?= csrf_field() ?>
+    <div class="form-grid">
+      <div class="field half"><label>Category for these photos</label>
+        <select name="category"><?php foreach (GALLERY_CATEGORIES as $k => $v): ?><option value="<?= e($k) ?>"><?= e($v) ?></option><?php endforeach; ?></select></div>
+      <div class="field half field-check"><label class="switch"><input type="hidden" name="visible" value="0"><input type="checkbox" name="visible" value="1" checked><span class="slider"></span><span class="switch-label">Show on the site right away</span></label></div>
+    </div>
+    <label class="dropzone"><input type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple required>
+      <i class="fa-solid fa-images"></i><b data-dz-label>Choose photos or drag them here</b><small>Titles come from the file names, which you can edit afterwards. Big photos are resized automatically.</small></label>
+    <div class="album-progress" hidden><div class="progress"><span></span></div><p class="muted"></p></div>
+    <button class="btn btn-gold" type="submit"><i class="fa-solid fa-upload"></i> Upload all</button>
+  </form>
+</details>
+<?php endif; ?>
 
 <?php if (!$rows): ?>
   <div class="panel empty"><i class="<?= e($ent['icon']) ?>"></i><p>Nothing here yet.</p><a class="btn btn-gold" href="<?= e($self) ?>&action=new">Add your first <?= e(strtolower($ent['singular'])) ?></a></div>
@@ -314,10 +392,10 @@ admin_header($ent['label'], 'manage-' . $type);
       <?php foreach ($ent['columns'] as $label): ?><th><?= e($label) ?></th><?php endforeach; ?>
       <th>Visible</th><th class="t-right">Actions</th>
     </tr></thead>
-    <tbody>
+    <tbody data-sortable data-action="<?= e($self) ?>" data-csrf="<?= e(csrf_token()) ?>">
     <?php foreach ($rows as $i => $r): ?>
-      <tr class="<?= $r['is_visible'] ? '' : 'is-hidden' ?>">
-        <td class="w-order">
+      <tr class="<?= $r['is_visible'] ? '' : 'is-hidden' ?>" data-id="<?= (int) $r['id'] ?>">
+        <td class="w-order"><span class="drag-handle" title="Drag to reorder" aria-hidden="true"><i class="fa-solid fa-grip-vertical"></i></span>
           <form method="post" class="order-btns"><?= csrf_field() ?><input type="hidden" name="op" value="move"><input type="hidden" name="id" value="<?= (int) $r['id'] ?>">
             <button name="dir" value="up" class="icon-btn sm" <?= $i === 0 ? 'disabled' : '' ?> aria-label="Move up"><i class="fa-solid fa-chevron-up"></i></button>
             <button name="dir" value="down" class="icon-btn sm" <?= $i === count($rows) - 1 ? 'disabled' : '' ?> aria-label="Move down"><i class="fa-solid fa-chevron-down"></i></button>

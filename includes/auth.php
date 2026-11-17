@@ -62,13 +62,48 @@ function attempt_login(string $login, string $password): bool
             ->execute([password_hash($password, PASSWORD_DEFAULT), $row['id']]);
     }
     db()->prepare('DELETE FROM login_attempts WHERE ip = ?')->execute([$ip]);
-    db()->prepare('UPDATE admins SET last_login = NOW() WHERE id = ?')->execute([$row['id']]);
 
+    // Two-step login turned on: password was right, now ask for the 6-digit code
+    if (!empty($row['totp_secret'])) {
+        session_regenerate_id(true);
+        $_SESSION['pending_2fa'] = ['id' => (int) $row['id'], 'at' => time()];
+        return true;
+    }
+    finish_login((int) $row['id']);
+    return true;
+}
+
+function pending_2fa(): ?int
+{
+    $p = $_SESSION['pending_2fa'] ?? null;
+    if (!$p || time() - (int) $p['at'] > 300) { unset($_SESSION['pending_2fa']); return null; } // 5 minutes to enter the code
+    return (int) $p['id'];
+}
+
+function verify_2fa(string $code): bool
+{
+    require_once __DIR__ . '/totp.php';
+    $id = pending_2fa();
+    if (!$id) return false;
+    $st = db()->prepare('SELECT totp_secret FROM admins WHERE id = ?');
+    $st->execute([$id]);
+    $secret = (string) $st->fetchColumn();
+    if ($secret === '' || !totp_verify($secret, $code)) {
+        db()->prepare('INSERT INTO login_attempts (ip) VALUES (?)')->execute([client_ip()]);
+        return false;
+    }
+    unset($_SESSION['pending_2fa']);
+    finish_login($id);
+    return true;
+}
+
+function finish_login(int $id): void
+{
+    db()->prepare('UPDATE admins SET last_login = NOW() WHERE id = ?')->execute([$id]);
     session_regenerate_id(true);
-    $_SESSION['admin_id'] = (int) $row['id'];
+    $_SESSION['admin_id'] = $id;
     $_SESSION['last_active'] = time();
     unset($_SESSION['csrf']);
-    return true;
 }
 
 function logout_admin(): void

@@ -10,7 +10,7 @@ declare(strict_types=1);
  * so anything you've already edited in the admin is left alone.
  */
 
-const SCHEMA_VERSION = 6;
+const SCHEMA_VERSION = 7;
 
 function run_migrations(): void
 {
@@ -259,4 +259,95 @@ function migration_6(PDO $pdo): void
     }
     if (!isset(settings()['showreel_label'])) save_setting('showreel_label', 'Watch Showreel');
     if (empty(settings()['ga_property_id'])) save_setting('ga_property_id', '534156941');
+}
+
+
+/** v7: clients, how-I-work, FAQ, proofing galleries, booking details, case studies, 2-step login */
+function migration_7(PDO $pdo): void
+{
+    $common = "sort_order INT NOT NULL DEFAULT 0,
+        is_visible TINYINT(1) NOT NULL DEFAULT 1,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
+
+    $pdo->exec("CREATE TABLE IF NOT EXISTS clients (
+        id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(150) NOT NULL,
+        logo VARCHAR(255) NULL,
+        url VARCHAR(500) NULL,
+        $common");
+
+    $pdo->exec("CREATE TABLE IF NOT EXISTS process_steps (
+        id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        title VARCHAR(120) NOT NULL,
+        description VARCHAR(400) NULL,
+        icon VARCHAR(100) NULL,
+        $common");
+
+    $pdo->exec("CREATE TABLE IF NOT EXISTS faqs (
+        id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        question VARCHAR(250) NOT NULL,
+        answer TEXT NULL,
+        $common");
+
+    $pdo->exec("CREATE TABLE IF NOT EXISTS proofs (
+        id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        title VARCHAR(150) NOT NULL,
+        client_name VARCHAR(150) NULL,
+        slug VARCHAR(80) NOT NULL,
+        access_code VARCHAR(60) NOT NULL,
+        message VARCHAR(500) NULL,
+        expires_on DATE NULL,
+        allow_download TINYINT(1) NOT NULL DEFAULT 1,
+        cover VARCHAR(255) NULL,
+        UNIQUE KEY uq_proof_slug (slug),
+        $common");
+
+    $pdo->exec("CREATE TABLE IF NOT EXISTS proof_photos (
+        id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        proof_id INT UNSIGNED NOT NULL,
+        image VARCHAR(255) NOT NULL,
+        sort_order INT NOT NULL DEFAULT 0,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_proof (proof_id, sort_order),
+        CONSTRAINT fk_proof_photos_proof FOREIGN KEY (proof_id) REFERENCES proofs (id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+    foreach (['event_date' => 'DATE NULL', 'event_location' => 'VARCHAR(200) NULL', 'budget' => 'VARCHAR(60) NULL'] as $col => $def) {
+        if (!mig_column_exists($pdo, 'messages', $col)) $pdo->exec("ALTER TABLE messages ADD COLUMN $col $def AFTER subject");
+    }
+    if (!mig_column_exists($pdo, 'projects', 'case_slug')) $pdo->exec('ALTER TABLE projects ADD COLUMN case_slug VARCHAR(120) NULL AFTER repo_url');
+    if (!mig_column_exists($pdo, 'projects', 'case_study')) $pdo->exec('ALTER TABLE projects ADD COLUMN case_study MEDIUMTEXT NULL AFTER case_slug');
+    if (!mig_column_exists($pdo, 'admins', 'totp_secret')) $pdo->exec('ALTER TABLE admins ADD COLUMN totp_secret VARCHAR(64) NULL AFTER password_hash');
+
+    // Generic "How I work" steps (edit them in the admin)
+    if ((int) $pdo->query('SELECT COUNT(*) FROM process_steps')->fetchColumn() === 0) {
+        $st = $pdo->prepare('INSERT INTO process_steps (title, description, icon, sort_order) VALUES (?, ?, ?, ?)');
+        foreach ([
+            ['Inquire', 'Send a message with your date, location and what you need. I reply with options and a quote.', 'fa-regular fa-comments'],
+            ['Plan', 'We agree on the shot list, schedule and deliverables so there are no surprises on the day.', 'fa-solid fa-clipboard-list'],
+            ['Create', 'I shoot, fly or build, then edit everything with care: color, sound and detail.', 'fa-solid fa-wand-magic-sparkles'],
+            ['Deliver', 'You receive your files through an online gallery or link, ready to post, print or launch.', 'fa-solid fa-paper-plane'],
+        ] as $i => [$t, $d, $ic]) {
+            $st->execute([$t, $d, $ic, $i + 1]);
+        }
+    }
+    // FAQ: questions only, HIDDEN until you write your own answers
+    if ((int) $pdo->query('SELECT COUNT(*) FROM faqs')->fetchColumn() === 0) {
+        $st = $pdo->prepare('INSERT INTO faqs (question, answer, sort_order, is_visible) VALUES (?, ?, ?, 0)');
+        foreach ([
+            'How much do you charge?',
+            'Do you travel outside my city? Is there a travel fee?',
+            'How long until I receive my photos or video?',
+            'Do you give the raw / unedited files?',
+            'How do I book and how much is the down payment?',
+            'Is the drone allowed everywhere?',
+        ] as $i => $q) {
+            $st->execute([$q, '', $i + 1]);
+        }
+    }
+    foreach (['show_intro' => '1', 'show_cursor' => '1', 'show_clients' => '1', 'show_process' => '1', 'show_faq' => '1',
+              'show_mobile_bar' => '1', 'show_booking_fields' => '1', 'messenger_username' => '', 'links_title' => ''] as $k => $v) {
+        if (!isset(settings()[$k])) save_setting($k, $v);
+    }
 }

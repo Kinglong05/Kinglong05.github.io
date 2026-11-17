@@ -40,6 +40,11 @@ $allowedServices = array_column(fetch_rows('services'), 'title');
 $allowedServices[] = 'Other';
 if (!in_array($service, $allowedServices, true)) $service = '';
 $message = trim((string) ($_POST['message'] ?? ''));
+// Booking details (optional)
+$eventDate = trim((string) ($_POST['event_date'] ?? ''));
+if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $eventDate) || !strtotime($eventDate)) $eventDate = null;
+$eventLocation = mb_substr(trim((string) ($_POST['event_location'] ?? '')), 0, 200) ?: null;
+$budget = mb_substr(trim((string) ($_POST['budget'] ?? '')), 0, 60) ?: null;
 
 $errors = [];
 if (mb_strlen($name) < 2 || mb_strlen($name) > 100) $errors[] = 'Please enter your name.';
@@ -58,7 +63,7 @@ if ((int) $st->fetchColumn() >= 3) {
     respond(false, 'You have sent several messages recently. Please wait a few minutes and try again.', 429);
 }
 
-$st = db()->prepare('INSERT INTO messages (name, email, service, subject, message, ip, user_agent) VALUES (?, ?, ?, ?, ?, ?, ?)');
-$st->execute([$name, $email, $service ?: null, $subject, $message, $ip, substr((string) ($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 255)]);
+$st = db()->prepare('INSERT INTO messages (name, email, service, subject, event_date, event_location, budget, message, ip, user_agent) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+$st->execute([$name, $email, $service ?: null, $subject, $eventDate, $eventLocation, $budget, $message, $ip, substr((string) ($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 255)]);
 
 respond(true, "Thanks, {$name}! Your message has been sent. I'll get back to you soon.");

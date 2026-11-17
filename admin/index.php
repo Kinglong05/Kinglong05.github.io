@@ -71,6 +71,28 @@ admin_header('Dashboard', 'dashboard');
   <a class="stat" href="manage.php?type=gallery"><span class="stat-ico"><i class="fa-solid fa-images"></i></span><div><b><?= $counts['gallery'] ?></b><small>Photos & videos</small></div></a>
 </div>
 
+<?php $liveLinks = rtrim(setting('site_url', 'https://kinglong05.github.io/'), '/') . '/links.html';
+      $lastBackup = setting('last_backup'); ?>
+<?php if (!$lastBackup || strtotime($lastBackup) < strtotime('-30 days')): ?>
+<div class="alert alert-warn notice"><i class="fa-solid fa-box-archive"></i>
+  <span><b><?= $lastBackup ? 'Your last backup is over a month old.' : 'You have never backed up your site.' ?></b> One click saves your database and all photos as a zip.</span>
+  <a class="btn btn-sm btn-gold" href="backup.php">Back up now</a>
+</div>
+<?php endif; ?>
+<section class="panel qr-card-panel">
+  <div class="qr-card">
+    <div class="qr" id="siteQr" data-qr="<?= e($liveLinks) ?>" data-size="132"></div>
+    <div>
+      <h3><i class="fa-solid fa-qrcode"></i> Your link-in-bio &amp; QR code</h3>
+      <p class="muted">Put <a class="link" href="<?= e($liveLinks) ?>" target="_blank" rel="noopener"><?= e($liveLinks) ?></a> in your Instagram / TikTok bio. Print the QR on business cards, event signs or your camera bag.</p>
+      <div class="form-actions" style="margin-top:12px">
+        <button type="button" class="btn btn-sm btn-gold" data-qr-download="siteQr"><i class="fa-solid fa-download"></i> Download QR (PNG)</button>
+        <a class="btn btn-sm btn-ghost" href="../links.php" target="_blank" rel="noopener">Preview links page</a>
+      </div>
+    </div>
+  </div>
+</section>
+
 <section class="panel visitors">
   <div class="panel-head">
     <h3><i class="fa-solid fa-chart-line"></i> Website visitors</h3>

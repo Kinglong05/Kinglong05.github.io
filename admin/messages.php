@@ -39,6 +39,13 @@ if (isset($_GET['view'])) {
           <h2><?= e($m['subject'] ?: '(no subject)') ?></h2>
           <p class="muted"><b><?= e($m['name']) ?></b> &lt;<?= e($m['email']) ?>&gt; · <?= e(date('M j, Y g:i A', strtotime($m['created_at']))) ?></p>
           <?php if (!empty($m['service'])): ?><span class="pill pill-gold"><i class="fa-solid fa-tag"></i> <?= e($m['service']) ?></span><?php endif; ?>
+          <?php if (!empty($m['event_date']) || !empty($m['event_location']) || !empty($m['budget'])): ?>
+            <div class="booking-meta">
+              <?php if (!empty($m['event_date'])): ?><span><i class="fa-regular fa-calendar"></i> <?= e(date('D, M j, Y', strtotime($m['event_date']))) ?></span><?php endif; ?>
+              <?php if (!empty($m['event_location'])): ?><span><i class="fa-solid fa-location-dot"></i> <?= e($m['event_location']) ?></span><?php endif; ?>
+              <?php if (!empty($m['budget'])): ?><span><i class="fa-solid fa-wallet"></i> <?= e($m['budget']) ?></span><?php endif; ?>
+            </div>
+          <?php endif; ?>
         </div>
       </header>
       <div class="message-body"><?= nl2br(e($m['message'])) ?></div>

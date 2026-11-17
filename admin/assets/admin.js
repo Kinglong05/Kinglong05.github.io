@@ -63,6 +63,8 @@
     const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.88));
     return blob ? new File([blob], file.name.replace(/\.\w+$/, '') + '.jpg', { type: 'image/jpeg' }) : file;
   };
+  window.pfShrink = shrink; // shared with bulk upload
+
   $$('[data-album-upload]').forEach(form => {
     const input = form.querySelector('input[type=file]');
     const label = form.querySelector('[data-dz-label]');
@@ -116,3 +118,85 @@ document.querySelectorAll('form[data-publish]').forEach(f => f.addEventListener(
   f.querySelector('.publish-wait').hidden = false;
   setTimeout(() => f.querySelectorAll('button').forEach(b => { b.disabled = true; }), 0);
 }));
+
+
+/* ===================== v4 admin features ===================== */
+(() => {
+  const $ = (s, c = document) => c.querySelector(s);
+  const $$ = (s, c = document) => [...c.querySelectorAll(s)];
+
+  // Drag-and-drop reordering for every list
+  $$('tbody[data-sortable]').forEach(tbody => {
+    if (typeof window.Sortable !== 'function') return;
+    window.Sortable.create(tbody, {
+      handle: '.drag-handle', animation: 150, ghostClass: 'drag-ghost',
+      onEnd: async () => {
+        const fd = new FormData();
+        fd.append('csrf', tbody.dataset.csrf);
+        fd.append('op', 'reorder');
+        $$('tr[data-id]', tbody).forEach(tr => fd.append('ids[]', tr.dataset.id));
+        try {
+          const r = await fetch(tbody.dataset.action, { method: 'POST', body: fd, headers: { Accept: 'application/json' } });
+          if (!r.ok) throw new Error();
+          tbody.classList.add('saved');
+          setTimeout(() => tbody.classList.remove('saved'), 900);
+        } catch { alert('Could not save the new order. Please refresh and try again.'); }
+      },
+    });
+  });
+
+  // Bulk gallery upload: one request per photo, with progress
+  $$('[data-bulk-upload]').forEach(form => {
+    const input = form.querySelector('input[type=file]');
+    const label = form.querySelector('[data-dz-label]');
+    const zone = form.querySelector('.dropzone');
+    input.addEventListener('change', () => {
+      label.textContent = input.files.length ? `${input.files.length} photo${input.files.length === 1 ? '' : 's'} selected` : 'Choose photos or drag them here';
+    });
+    ['dragenter', 'dragover'].forEach(ev => zone.addEventListener(ev, () => zone.classList.add('over')));
+    ['dragleave', 'drop'].forEach(ev => zone.addEventListener(ev, () => zone.classList.remove('over')));
+    form.addEventListener('submit', async e => {
+      e.preventDefault();
+      const files = [...input.files];
+      if (!files.length) return;
+      const btn = form.querySelector('button[type=submit]');
+      const box = form.querySelector('.album-progress');
+      const bar = box.querySelector('.progress span');
+      const txt = box.querySelector('p');
+      btn.disabled = true; box.hidden = false;
+      const errors = [];
+      for (let i = 0; i < files.length; i++) {
+        txt.textContent = `Uploading ${i + 1} of ${files.length}: ${files[i].name}`;
+        const fd = new FormData();
+        fd.append('csrf', form.elements.csrf.value);
+        fd.append('op', 'bulk_upload');
+        fd.append('category', form.elements.category.value);
+        fd.append('visible', form.querySelector('input[type=checkbox][name=visible]').checked ? '1' : '0');
+        try {
+          fd.append('photo', window.pfShrink ? await window.pfShrink(files[i]) : files[i]);
+          const res = await fetch(form.action, { method: 'POST', body: fd, headers: { Accept: 'application/json' } });
+          const data = await res.json().catch(() => ({ ok: false, error: `${files[i].name}: server error (${res.status})` }));
+          if (!data.ok) errors.push(data.error || files[i].name + ': failed');
+        } catch { errors.push(files[i].name + ': network error'); }
+        bar.style.width = `${Math.round(((i + 1) / files.length) * 100)}%`;
+      }
+      if (errors.length) alert('Some photos could not be uploaded:\n\n' + errors.slice(0, 10).join('\n'));
+      location.reload();
+    });
+  });
+
+  // QR codes (dashboard + 2-step login setup)
+  $$('[data-qr]').forEach(box => {
+    if (typeof window.QRCode !== 'function') { box.textContent = 'QR code could not load (offline?).'; return; }
+    new window.QRCode(box, { text: box.dataset.qr, width: Number(box.dataset.size || 180), height: Number(box.dataset.size || 180), colorDark: '#111111', colorLight: '#ffffff', correctLevel: window.QRCode.CorrectLevel.M });
+  });
+  $$('[data-qr-download]').forEach(btn => btn.addEventListener('click', () => {
+    const box = document.getElementById(btn.dataset.qrDownload);
+    const canvas = box?.querySelector('canvas');
+    const img = box?.querySelector('img');
+    const src = canvas ? canvas.toDataURL('image/png') : img?.src;
+    if (!src) return;
+    const a = Object.assign(document.createElement('a'), { href: src, download: 'portfolio-qr.png' });
+    document.body.appendChild(a); a.click(); a.remove();
+  }));
+})();

@@ -17,6 +17,10 @@ $packages     = $on('show_packages') ? fetch_rows('packages') : [];
 $comparisons  = $on('show_comparisons') ? array_values(array_filter(fetch_rows('comparisons'), fn($c) => $c['before_image'] && $c['after_image'])) : [];
 $certificates = $on('show_certificates') ? fetch_rows('certificates') : [];
 $gear         = $on('show_gear') ? fetch_rows('gear') : [];
+$clients      = $on('show_clients') ? fetch_rows('clients') : [];
+$steps        = $on('show_process') ? fetch_rows('process_steps') : [];
+$faqs         = $on('show_faq') ? array_values(array_filter(fetch_rows('faqs'), fn($f) => trim((string) $f['answer']) !== '')) : [];
+$messenger    = trim(setting('messenger_username'));
 $posts        = $on('show_posts') ? db()->query('SELECT * FROM posts WHERE is_visible = 1 ORDER BY published_on DESC, id DESC LIMIT 6')->fetchAll() : [];
 
 // Showreel (hero button)
@@ -49,6 +53,7 @@ $siteUrl = $scheme . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . rtrim(dirn
 $sections = ['about' => 'About Me', 'skills' => 'Skills & Stack'];
 if ($services) $sections['services'] = 'Services';
 if ($packages) $sections['packages'] = 'Packages & Prices';
+if ($steps) $sections['process'] = 'How I Work';
 if ($projects) $sections['projects'] = 'Featured Projects';
 if ($gallery) $sections['gallery'] = 'Photo, Video & Drone';
 if ($comparisons) $sections['before-after'] = 'Before & After';
@@ -57,6 +62,7 @@ if ($certificates) $sections['certificates'] = 'Certificates & Awards';
 if ($gear) $sections['gear'] = 'Gear I Use';
 if ($testimonials) $sections['testimonials'] = 'Testimonials';
 if ($posts) $sections['stories'] = 'Stories';
+if ($faqs) $sections['faq'] = 'FAQ';
 $sections['contact'] = 'Get In Touch';
 $num = array_combine(array_keys($sections), array_map(fn($i) => str_pad((string) ($i + 1), 2, '0', STR_PAD_LEFT), array_keys(array_keys($sections))));
 
@@ -158,8 +164,19 @@ $footer = str_replace('{year}', date('Y'), setting('footer_text', '© {year} ' .
 <script data-goatcounter="https://<?= e($gc) ?>.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
 <?php endif; ?>
 <script type="application/ld+json"><?= json_encode(['@context' => 'https://schema.org', '@type' => 'Person', 'name' => $name, 'url' => $siteUrl, 'sameAs' => array_column($socials, 'url')], JSON_UNESCAPED_SLASHES | JSON_HEX_TAG) ?></script>
+<?php if ($faqs): ?>
+<script type="application/ld+json"><?= json_encode(['@context' => 'https://schema.org', '@type' => 'FAQPage', 'mainEntity' => array_map(fn($f) => ['@type' => 'Question', 'name' => $f['question'], 'acceptedAnswer' => ['@type' => 'Answer', 'text' => str_replace('**', '', (string) $f['answer'])]], $faqs)], JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_UNESCAPED_UNICODE) ?></script>
+<?php endif; ?>
 </head>
-<body>
+<body<?= $on('show_cursor') ? ' class="has-cursor"' : '' ?>>
+<?php if ($on('show_intro')): ?>
+<div class="intro" id="intro" aria-hidden="true">
+  <svg class="intro-mark" viewBox="0 0 32 32"><path class="intro-hex" d="M16 2.5 28 9.5v13L16 29.5 4 22.5v-13z"/><path class="intro-code" d="M13 12l-4 4 4 4M19 12l4 4-4 4"/></svg>
+  <span class="intro-name"><?= e($logo) ?></span>
+</div>
+<script>try{if(sessionStorage.getItem('introSeen')||matchMedia('(prefers-reduced-motion: reduce)').matches)document.getElementById('intro').remove()}catch(e){}</script>
+<?php endif; ?>
+<?php if ($on('show_cursor')): ?><div class="cursor" id="cursor" aria-hidden="true"><span class="cursor-label"></span></div><?php endif; ?>
 <div class="scroll-progress" aria-hidden="true"><span id="scrollBar"></span></div>
 <div class="bg-fx" aria-hidden="true"><span class="glow g1"></span><span class="glow g2"></span></div>
 
@@ -196,7 +213,7 @@ $footer = str_replace('{year}', date('Y'), setting('footer_text', '© {year} ' .
       <?php endif; ?>
       <p class="lead"><?= e(setting('hero_subtitle')) ?></p>
       <div class="hero-actions">
-        <a href="#contact" class="btn btn-gold"><span data-i18n="hero.hire">Hire Me</span> <i class="fa-solid fa-arrow-right tilt"></i></a>
+        <a href="#contact" class="btn btn-gold" data-magnetic><span data-i18n="hero.hire">Hire Me</span> <i class="fa-solid fa-arrow-right tilt"></i></a>
         <?php if ($projects || $gallery): ?><a href="#<?= $projects ? 'projects' : 'gallery' ?>" class="btn btn-outline"><span data-i18n="hero.work">View My Work</span> <i class="fa-solid fa-table-cells-large"></i></a><?php endif; ?>
         <?php if ($reel): ?>
           <?php if ($reel['kind'] === 'link'): ?>
@@ -236,6 +253,22 @@ $footer = str_replace('{year}', date('Y'), setting('footer_text', '© {year} ' .
       <?php endif; ?>
     </div>
   </section>
+
+  <?php if ($clients): ?>
+  <!-- CLIENTS / TRUSTED BY -->
+  <section class="clients-strip" aria-label="Clients and collaborators">
+    <span class="clients-label" data-i18n="cl.label">Trusted by</span>
+    <div class="marquee"><div class="marquee-track">
+      <?php for ($rep = 0; $rep < 2; $rep++): // duplicated for a seamless loop ?>
+        <?php foreach ($clients as $cl): $tag = $cl['url'] ? 'a' : 'span'; ?>
+          <<?= $tag ?> class="client"<?= $cl['url'] ? ' href="' . e($cl['url']) . '" target="_blank" rel="noopener"' : '' ?><?= $rep ? ' aria-hidden="true" tabindex="-1"' : '' ?>>
+            <?php if ($cl['logo']): ?><img src="<?= e(url($cl['logo'])) ?>" alt="<?= $rep ? '' : e($cl['name']) ?>" loading="lazy"><?php else: ?><span><?= e($cl['name']) ?></span><?php endif; ?>
+          </<?= $tag ?>>
+        <?php endforeach; ?>
+      <?php endfor; ?>
+    </div></div>
+  </section>
+  <?php endif; ?>
 
   <!-- ABOUT + SKILLS -->
   <div class="split">
@@ -340,6 +373,23 @@ $footer = str_replace('{year}', date('Y'), setting('footer_text', '© {year} ' .
   </section>
   <?php endif; ?>
 
+  <?php if ($steps): ?>
+  <!-- HOW I WORK -->
+  <section id="process" class="card section">
+    <?= $label('process') ?>
+    <ol class="process" style="--n: <?= count($steps) ?>">
+      <?php foreach ($steps as $i => $stp): ?>
+        <li class="step reveal" data-delay="<?= $i % 4 ?>">
+          <span class="step-num"><?= str_pad((string) ($i + 1), 2, '0', STR_PAD_LEFT) ?></span>
+          <span class="step-ico"><i class="<?= e($stp['icon'] ?: 'fa-solid fa-circle-check') ?>"></i></span>
+          <h3><?= e($stp['title']) ?></h3>
+          <?php if ($stp['description']): ?><p><?= e($stp['description']) ?></p><?php endif; ?>
+        </li>
+      <?php endforeach; ?>
+    </ol>
+  </section>
+  <?php endif; ?>
+
   <?php if ($projects): ?>
   <!-- PROJECTS -->
   <section id="projects" class="card section">
@@ -347,7 +397,7 @@ $footer = str_replace('{year}', date('Y'), setting('footer_text', '© {year} ' .
       <?= $label('projects') ?>
       <?php if ($extra): ?><button class="link-btn" id="viewAll" aria-expanded="false">View all projects <i class="fa-solid fa-arrow-right"></i></button><?php endif; ?>
     </div>
-    <div class="project-grid<?= count($featured) === 1 ? ' single' : (count($featured) === 2 ? ' double' : '') ?>">
+    <div class="project-grid<?= count($featured) === 1 ? ' single' : (in_array(count($featured), [2, 4], true) ? ' double' : '') ?>">
       <?php foreach ([...$featured, ...$extra] as $i => $p):
         $isExtra = $i >= count($featured);
         $link = $p['live_url'] ?: $p['repo_url']; ?>
@@ -371,6 +421,9 @@ $footer = str_replace('{year}', date('Y'), setting('footer_text', '© {year} ' .
                 <?php if ($link): ?><a href="<?= e($link) ?>" class="sq-btn" target="_blank" rel="noopener" aria-label="Open <?= e($p['title']) ?>"><i class="fa-solid fa-arrow-up-right-from-square"></i></a><?php endif; ?>
               </div>
             </div>
+            <?php if (!empty($p['case_slug']) && trim((string) $p['case_study']) !== ''): ?>
+              <a class="case-link" href="project.php?slug=<?= e($p['case_slug']) ?>"><span data-i18n="pr.case">Read case study</span> <i class="fa-solid fa-arrow-right"></i></a>
+            <?php endif; ?>
           </div>
         </article>
       <?php endforeach; ?>
@@ -398,6 +451,7 @@ $footer = str_replace('{year}', date('Y'), setting('footer_text', '© {year} ' .
         $catIcon = GALLERY_ICONS[$g['category']] ?? 'fa-solid fa-image'; ?>
         <div class="g-item g-<?= e($g['layout']) ?><?= $g['live'] ? ' g-live' : '' ?> reveal" data-delay="<?= $i % 4 ?>"
           data-cat="<?= e($g['category']) ?>"
+          <?php if (!empty($g['video_file']) && !$g['live']): ?>data-preview="<?= e(url($g['video_file'])) ?>"<?php endif; ?>
           data-title="<?= e($g['title_plain']) ?>"
           data-caption="<?= e(implode(' · ', array_filter([trim((string) $g['location']), trim((string) $g['description'])], 'strlen'))) ?>"
           <?php if ($g['link']): ?>data-link="<?= e($g['link']) ?>" data-link-label="<?= e($g['link_label']) ?>" data-link-icon="<?= e($g['link_icon']) ?>"<?php endif; ?>
@@ -574,6 +628,21 @@ $footer = str_replace('{year}', date('Y'), setting('footer_text', '© {year} ' .
   </section>
   <?php endif; ?>
 
+  <?php if ($faqs): ?>
+  <!-- FAQ -->
+  <section id="faq" class="card section">
+    <?= $label('faq') ?>
+    <div class="faq-list">
+      <?php foreach ($faqs as $i => $f): ?>
+        <details class="faq reveal" data-delay="<?= $i % 2 ?>"<?= $i === 0 ? ' open' : '' ?>>
+          <summary><span><?= e($f['question']) ?></span><i class="fa-solid fa-plus" aria-hidden="true"></i></summary>
+          <div class="faq-a"><?= hl((string) $f['answer']) ?></div>
+        </details>
+      <?php endforeach; ?>
+    </div>
+  </section>
+  <?php endif; ?>
+
   <!-- CONTACT -->
   <section id="contact" class="card contact">
     <div class="contact-intro reveal">
@@ -599,6 +668,19 @@ $footer = str_replace('{year}', date('Y'), setting('footer_text', '© {year} ' .
           </label>
           <label class="fl"><span class="sr">Subject</span><input name="subject" placeholder="Subject" data-i18n-ph="f.subject" maxlength="150"></label>
         </div>
+        <?php if ($on('show_booking_fields')): ?>
+        <div class="row3 booking-fields">
+          <label class="fl"><span class="fl-cap" data-i18n="f.date">Event / project date</span><input type="date" name="event_date" min="<?= date('Y-m-d') ?>"></label>
+          <label class="fl"><span class="fl-cap" data-i18n="f.where">Location</span><input name="event_location" placeholder="City / venue" data-i18n-ph="f.wherePh" maxlength="200"></label>
+          <label class="fl"><span class="fl-cap" data-i18n="f.budget">Budget</span>
+            <select name="budget">
+              <option value="" data-i18n="f.budgetPick">Select…</option>
+              <option>Under ₱5,000</option><option>₱5,000 – ₱15,000</option><option>₱15,000 – ₱30,000</option><option>₱30,000+</option>
+              <option value="Not sure yet" data-i18n="f.notSure">Not sure yet</option>
+            </select>
+          </label>
+        </div>
+        <?php endif; ?>
         <label class="fl"><span class="sr">Message</span><textarea name="message" placeholder="Your Message" data-i18n-ph="f.message" rows="5" required minlength="10" maxlength="5000"></textarea></label>
         <div class="form-foot">
           <button class="btn btn-gold" type="submit"><span data-i18n="f.send">Send Message</span> <i class="fa-regular fa-paper-plane"></i></button>
@@ -649,6 +731,20 @@ $footer = str_replace('{year}', date('Y'), setting('footer_text', '© {year} ' .
     </figcaption>
   </figure>
 </div>
+<?php endif; ?>
+
+<?php if ($on('show_mobile_bar')):
+    $tel = setting('contact_phone') ? 'tel:' . preg_replace('/[^\d+]/', '', $s['contact_phone']) : ''; ?>
+<!-- Phone action bar + Messenger button -->
+<nav class="action-bar" aria-label="Quick contact">
+  <?php if ($tel): ?><a href="<?= e($tel) ?>" data-track="call_click"><i class="fa-solid fa-phone"></i><span data-i18n="ab.call">Call</span></a><?php endif; ?>
+  <?php if ($messenger): ?><a href="https://m.me/<?= e(rawurlencode($messenger)) ?>" target="_blank" rel="noopener" data-track="messenger_click"><i class="fa-brands fa-facebook-messenger"></i><span data-i18n="ab.msg">Message</span></a>
+  <?php else: ?><a href="#contact"><i class="fa-regular fa-envelope"></i><span data-i18n="ab.msg">Message</span></a><?php endif; ?>
+  <a href="#contact" class="ab-book" data-book="Booking inquiry"><i class="fa-regular fa-calendar-check"></i><span data-i18n="ab.book">Book</span></a>
+</nav>
+<?php if ($messenger): ?>
+<a class="messenger-fab" href="https://m.me/<?= e(rawurlencode($messenger)) ?>" target="_blank" rel="noopener" aria-label="Chat on Messenger" data-track="messenger_click"><i class="fa-brands fa-facebook-messenger"></i><span>Chat with me</span></a>
+<?php endif; ?>
 <?php endif; ?>
 
 <?php if ($reel && $reel['kind'] !== 'link'): ?>

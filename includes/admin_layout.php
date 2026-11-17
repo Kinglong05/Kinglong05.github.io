@@ -42,6 +42,7 @@ function admin_header(string $title, string $active = ''): void
     <?php foreach ($entities as $key => $ent) { $nav('manage.php?type=' . $key, $ent['icon'], $ent['label'], 'manage-' . $key); } ?>
     <div class="nav-label">Website</div>
     <?php $nav('publish.php', 'fa-solid fa-cloud-arrow-up', 'Publish', 'publish'); ?>
+    <?php $nav('backup.php', 'fa-solid fa-box-archive', 'Backup', 'backup'); ?>
     <div class="nav-label">Account</div>
     <?php $nav('account.php', 'fa-solid fa-user-shield', 'My Account', 'account'); ?>
     <a href="../" target="_blank" rel="noopener"><i class="fa-solid fa-arrow-up-right-from-square"></i><span>View Site</span></a>
@@ -76,6 +77,8 @@ function admin_footer(): void
     ?>
   </div>
 </div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="assets/admin.js?v=<?= filemtime(APP_ROOT . '/admin/assets/admin.js') ?>"></script>
 </body>
 </html>

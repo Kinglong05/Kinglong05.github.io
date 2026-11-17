@@ -16,7 +16,7 @@ function db(): PDO
 }
 
 /** Tables that hold list content (used for whitelisting dynamic table names). */
-const CONTENT_TABLES = ['skills', 'services', 'packages', 'projects', 'gallery', 'comparisons', 'experiences', 'certificates', 'gear', 'testimonials', 'socials', 'posts'];
+const CONTENT_TABLES = ['skills', 'services', 'packages', 'process_steps', 'projects', 'gallery', 'comparisons', 'experiences', 'certificates', 'gear', 'clients', 'testimonials', 'faqs', 'socials', 'posts', 'proofs'];
 
 function fetch_rows(string $table, bool $visibleOnly = true): array
 {
@@ -56,5 +56,14 @@ function album_photos(int $galleryId): array
 {
     $st = db()->prepare('SELECT id, image FROM gallery_photos WHERE gallery_id = ? ORDER BY sort_order ASC, id ASC');
     $st->execute([$galleryId]);
+    return $st->fetchAll();
+}
+
+/** Album photos of any entity that has one (table/column names come from entities.php config). */
+function album_rows(string $table, string $fk, int $id): array
+{
+    if (!preg_match('/^[a-z_]+$/', $table) || !preg_match('/^[a-z_]+$/', $fk)) return [];
+    $st = db()->prepare("SELECT id, image FROM `$table` WHERE `$fk` = ? ORDER BY sort_order ASC, id ASC");
+    $st->execute([$id]);
     return $st->fetchAll();
 }

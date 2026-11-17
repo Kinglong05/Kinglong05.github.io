@@ -18,10 +18,15 @@ return [
             'live_url'    => ['type' => 'url', 'label' => 'Live demo URL'],
             'repo_url'    => ['type' => 'url', 'label' => 'GitHub / source URL'],
             'is_featured' => ['type' => 'checkbox', 'label' => 'Featured (shown before clicking "View all projects")', 'default' => 1],
+            'case_study'  => ['type' => 'textarea', 'label' => 'Case study (optional, gets its own page)', 'rows' => 14, 'max' => 60000,
+                'help' => 'Tell the story: <code>## The problem</code>, <code>## What I built</code>, <code>## Results</code>. Same formatting as Stories: <code>**gold**</code>, <code>- lists</code>, <code>[links](https://...)</code>, photos with <code>![caption](uploads/... or https://...)</code>. When filled, the card shows "Read case study".'],
+            'case_slug'   => ['type' => 'text', 'label' => 'Case study link name (optional)', 'max' => 120, 'help' => 'Made from the title if empty.'],
         ],
     ],
     'gallery' => [
         'label' => 'Photo & Video', 'singular' => 'Gallery item', 'icon' => 'fa-solid fa-images',
+        'album' => ['table' => 'gallery_photos', 'fk' => 'gallery_id', 'note' => 'Add every photo from this shoot. Visitors can click through them on your site.'],
+        'bulk' => true,
         'columns' => ['image' => 'Image', 'title' => 'Title', 'category' => 'Category', 'media_type' => 'Type', 'layout' => 'Size'],
         'fields' => [
             'title'      => ['type' => 'text', 'label' => 'Title', 'required' => true, 'max' => 150],
@@ -69,6 +74,15 @@ return [
             'features'    => ['type' => 'textarea', 'label' => "What's included", 'rows' => 5, 'max' => 2000, 'help' => 'One per line, e.g. "1 hour shoot", "20 edited photos", "Online gallery".'],
             'icon'        => ['type' => 'icon', 'label' => 'Icon', 'help' => 'e.g. <code>fa-solid fa-camera</code>, <code>fa-solid fa-video</code>, <code>icon-drone</code>, <code>fa-solid fa-code</code>'],
             'is_popular'  => ['type' => 'checkbox', 'label' => 'Highlight as "Most Popular"'],
+        ],
+    ],
+    'process_steps' => [
+        'label' => 'How I Work', 'singular' => 'Step', 'icon' => 'fa-solid fa-route',
+        'columns' => ['icon' => 'Icon', 'title' => 'Step', 'description' => 'Description'],
+        'fields' => [
+            'title'       => ['type' => 'text', 'label' => 'Step name', 'required' => true, 'max' => 120, 'help' => 'Keep it short: Inquire, Plan, Shoot, Deliver...'],
+            'description' => ['type' => 'textarea', 'label' => 'What happens', 'rows' => 2, 'max' => 400],
+            'icon'        => ['type' => 'icon', 'label' => 'Icon', 'help' => 'e.g. <code>fa-regular fa-comments</code>, <code>fa-solid fa-camera</code>, <code>icon-drone</code>'],
         ],
     ],
     'comparisons' => [
@@ -123,6 +137,38 @@ return [
             'category' => ['type' => 'select', 'label' => 'Type', 'half' => true, 'options' => GEAR_CATEGORIES],
             'note'     => ['type' => 'text', 'label' => 'Short note (optional)', 'half' => true, 'max' => 200, 'help' => 'e.g. "Main camera", "4K aerials"'],
             'image'    => ['type' => 'image', 'label' => 'Photo (optional)', 'help' => 'Leave empty to show an icon.'],
+        ],
+    ],
+    'clients' => [
+        'label' => 'Clients (logo strip)', 'singular' => 'Client', 'icon' => 'fa-solid fa-handshake',
+        'columns' => ['logo' => 'Logo', 'name' => 'Name', 'url' => 'Website'],
+        'fields' => [
+            'name' => ['type' => 'text', 'label' => 'Client / organization', 'required' => true, 'max' => 150, 'help' => 'Only add people and organizations you really worked with.'],
+            'logo' => ['type' => 'image', 'label' => 'Logo (optional)', 'help' => 'A PNG with a transparent background looks best. Without a logo, the name is shown.'],
+            'url'  => ['type' => 'url', 'label' => 'Website or page (optional)'],
+        ],
+    ],
+    'faqs' => [
+        'label' => 'FAQ', 'singular' => 'Question', 'icon' => 'fa-solid fa-circle-question',
+        'columns' => ['question' => 'Question', 'answer' => 'Answer'],
+        'fields' => [
+            'question' => ['type' => 'text', 'label' => 'Question', 'required' => true, 'max' => 250],
+            'answer'   => ['type' => 'textarea', 'label' => 'Answer', 'required' => true, 'rows' => 4, 'max' => 3000, 'help' => 'Short and clear. <code>**gold**</code> works. Google can show your FAQ in search results.'],
+        ],
+    ],
+    'proofs' => [
+        'label' => 'Client Galleries', 'singular' => 'Client gallery', 'icon' => 'fa-solid fa-lock',
+        'album' => ['table' => 'proof_photos', 'fk' => 'proof_id', 'note' => 'Upload the client\'s photos here. They see them at the private link below after entering the access code.'],
+        'columns' => ['cover' => 'Cover', 'title' => 'Title', 'client_name' => 'Client', 'slug' => 'Link', 'expires_on' => 'Expires'],
+        'fields' => [
+            'title'          => ['type' => 'text', 'label' => 'Gallery title', 'required' => true, 'max' => 150, 'help' => 'e.g. "Vivian & Jun Romer - Wedding"'],
+            'client_name'    => ['type' => 'text', 'label' => 'Client name', 'half' => true, 'max' => 150],
+            'access_code'    => ['type' => 'text', 'label' => 'Access code', 'required' => true, 'half' => true, 'max' => 60, 'help' => 'Send this to the client together with the link, e.g. <code>ROMER2025</code>.'],
+            'slug'           => ['type' => 'text', 'label' => 'Link name (optional)', 'half' => true, 'max' => 80, 'help' => 'Made from the title if empty.'],
+            'expires_on'     => ['type' => 'date', 'label' => 'Expires on (optional)', 'half' => true],
+            'cover'          => ['type' => 'image', 'label' => 'Cover photo'],
+            'message'        => ['type' => 'textarea', 'label' => 'Note for the client (optional)', 'rows' => 2, 'max' => 500, 'help' => 'e.g. "Thank you! Please choose your 20 favorites for printing."'],
+            'allow_download' => ['type' => 'checkbox', 'label' => 'Allow the client to download photos', 'default' => 1],
         ],
     ],
     'posts' => [

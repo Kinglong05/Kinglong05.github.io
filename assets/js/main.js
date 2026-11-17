@@ -26,18 +26,18 @@
   const nav = $('#nav');
   const toggle = $('#navToggle');
   toggle?.addEventListener('click', () => {
-    const open = nav.classList.toggle('open');
+    const open = nav?.classList.toggle('open');
     toggle.setAttribute('aria-expanded', String(open));
   });
   $$('#navLinks a').forEach(a => a.addEventListener('click', () => {
-    nav.classList.remove('open');
+    nav?.classList.remove('open');
     toggle?.setAttribute('aria-expanded', 'false');
   }));
-  document.addEventListener('keydown', e => { if (e.key === 'Escape') nav.classList.remove('open'); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') nav?.classList.remove('open'); });
 
   const bar = document.getElementById('scrollBar');
   const onScroll = () => {
-    nav.classList.toggle('scrolled', scrollY > 10);
+    nav?.classList.toggle('scrolled', scrollY > 10);
     if (bar) {
       const max = document.documentElement.scrollHeight - innerHeight;
       bar.style.transform = `scaleX(${max > 0 ? Math.min(1, scrollY / max) : 0})`;
@@ -428,6 +428,9 @@
     'ba.hint': 'I-drag para ikumpara', 'ba.before': 'Bago', 'ba.after': 'Pagkatapos',
     'g.all': 'Lahat', 'story.read': 'Basahin', 'ig.text': 'Mas maraming litrato, reels at behind-the-scenes sa Instagram.', 'ig.follow': 'Sundan sa Instagram',
     'f.name': 'Pangalan Mo', 'f.email': 'Email Mo', 'f.need': 'Ano ang kailangan mo?', 'f.subject': 'Paksa', 'f.message': 'Mensahe Mo', 'f.send': 'Ipadala',
+    'f.date': 'Petsa ng event / proyekto', 'f.where': 'Lugar', 'f.wherePh': 'Lungsod / venue', 'f.budget': 'Budget', 'f.budgetPick': 'Pumili…', 'f.notSure': 'Hindi pa sigurado',
+    'sec.process': 'Paano Ako Magtrabaho', 'sec.faq': 'Mga Madalas Itanong', 'cl.label': 'Pinagkakatiwalaan ng', 'pr.case': 'Basahin ang case study',
+    'ab.call': 'Tawag', 'ab.msg': 'Mensahe', 'ab.book': 'Mag-book',
   };
   const langBtn = $('#langToggle');
   const applyLang = lang => {
@@ -523,5 +526,136 @@
   if (shareBtn && navigator.share) {
     shareBtn.hidden = false;
     shareBtn.addEventListener('click', () => navigator.share({ title: shareBtn.dataset.title, url: shareBtn.dataset.url }).catch(() => {}));
+  }
+})();
+
+
+/* ===================== v4: motion & polish ===================== */
+(() => {
+  const $ = (s, c = document) => c.querySelector(s);
+  const $$ = (s, c = document) => [...c.querySelectorAll(s)];
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const finePointer = matchMedia('(hover: hover) and (pointer: fine)').matches;
+  const ga = (n, l) => { try { if (typeof window.gtag === 'function') window.gtag('event', n, l ? { item_name: l } : {}); } catch { /* ignore */ } };
+
+  /* ---- Intro: logo draws itself, once per visit ---- */
+  const intro = $('#intro');
+  if (intro) {
+    document.body.classList.add('intro-on');
+    const done = () => {
+      intro.classList.add('out');
+      document.body.classList.remove('intro-on');
+      try { sessionStorage.setItem('introSeen', '1'); } catch { /* ignore */ }
+      setTimeout(() => intro.remove(), 700);
+    };
+    setTimeout(done, 1500);
+    intro.addEventListener('click', done);
+  }
+
+  /* ---- Gold cursor + "View / Play" labels (computers only) ---- */
+  const cursor = $('#cursor');
+  if (cursor && finePointer && !reduce) {
+    document.documentElement.classList.add('cursor-on');
+    const label = $('.cursor-label', cursor);
+    let x = innerWidth / 2, y = innerHeight / 2, cx = x, cy = y;
+    addEventListener('mousemove', e => { x = e.clientX; y = e.clientY; cursor.classList.add('show'); }, { passive: true });
+    document.addEventListener('mouseleave', () => cursor.classList.remove('show'));
+    const loop = () => {
+      cx += (x - cx) * 0.22; cy += (y - cy) * 0.22;
+      cursor.style.transform = `translate(${cx}px, ${cy}px)`;
+      requestAnimationFrame(loop);
+    };
+    loop();
+    document.addEventListener('mouseover', e => {
+      const t = e.target.closest('.g-item, .ba-frame, .story, .project-thumb, a, button, summary, input, select, textarea, label');
+      cursor.classList.remove('hover', 'media', 'text');
+      label.textContent = '';
+      if (!t) return;
+      if (t.matches('input, textarea, select')) { cursor.classList.add('text'); return; }
+      if (t.closest('.ba-frame')) { cursor.classList.add('media'); label.textContent = 'Drag'; return; }
+      if (t.closest('.g-item')) {
+        const it = t.closest('.g-item');
+        cursor.classList.add('media');
+        label.textContent = it.dataset.kind === 'photos' || it.dataset.kind === 'image' ? 'View' : (it.dataset.kind === 'none' ? '' : 'Play');
+        return;
+      }
+      if (t.closest('.story, .project-thumb')) { cursor.classList.add('media'); label.textContent = 'Open'; return; }
+      cursor.classList.add('hover');
+    });
+  }
+
+  /* ---- Interactive hero (3D tilt / parallax) + magnetic buttons ---- */
+  const visual = $('.hero-visual');
+  if (visual && finePointer && !reduce) {
+    const hero = $('.hero');
+    hero.addEventListener('mousemove', e => {
+      const r = hero.getBoundingClientRect();
+      const dx = (e.clientX - r.left) / r.width - 0.5;
+      const dy = (e.clientY - r.top) / r.height - 0.5;
+      visual.style.setProperty('--mx', dx.toFixed(3));
+      visual.style.setProperty('--my', dy.toFixed(3));
+    });
+    hero.addEventListener('mouseleave', () => { visual.style.setProperty('--mx', 0); visual.style.setProperty('--my', 0); });
+  }
+  if (finePointer && !reduce) {
+    $$('[data-magnetic], .nav-cta, .btn-play, .pkg.popular .btn').forEach(b => {
+      b.addEventListener('mousemove', e => {
+        const r = b.getBoundingClientRect();
+        b.style.transform = `translate(${(e.clientX - r.left - r.width / 2) * 0.18}px, ${(e.clientY - r.top - r.height / 2) * 0.28}px)`;
+      });
+      b.addEventListener('mouseleave', () => { b.style.transform = ''; });
+    });
+  }
+
+  /* ---- Gallery: play uploaded videos silently on hover ---- */
+  if (finePointer) {
+    $$('.g-item[data-preview]').forEach(it => {
+      let v = null;
+      it.addEventListener('mouseenter', () => {
+        if (!v) {
+          v = Object.assign(document.createElement('video'), { src: it.dataset.preview, muted: true, loop: true, playsInline: true, preload: 'auto', className: 'g-hover-video' });
+          v.setAttribute('aria-hidden', 'true');
+          it.insertBefore(v, it.querySelector('.play') || null);
+        }
+        v.play().catch(() => {});
+        it.classList.add('previewing');
+      });
+      it.addEventListener('mouseleave', () => { if (v) { v.pause(); v.currentTime = 0; } it.classList.remove('previewing'); });
+    });
+  }
+
+  /* ---- Images fade in when loaded (no harsh pop-in) ---- */
+  $$('.g-item img, .story-img img, .project-thumb img, .cert-img img').forEach(img => {
+    if (img.complete) return;
+    img.classList.add('fade-img');
+    img.addEventListener('load', () => img.classList.add('loaded'), { once: true });
+    img.addEventListener('error', () => img.classList.add('loaded'), { once: true });
+  });
+
+  /* ---- FAQ: only one open at a time ---- */
+  $$('.faq').forEach(d => d.addEventListener('toggle', () => {
+    if (d.open) { $$('.faq').forEach(o => { if (o !== d) o.open = false; }); ga('faq_open', $('summary span', d)?.textContent || ''); }
+  }));
+
+  /* ---- QR codes (link-in-bio page) ---- */
+  const drawQr = () => $$('.qr[data-qr]').forEach(box => {
+    if (box.dataset.done || typeof window.QRCode !== 'function') return;
+    box.dataset.done = '1';
+    new window.QRCode(box, { text: box.dataset.qr, width: 180, height: 180, colorDark: '#111111', colorLight: '#ffffff' });
+  });
+  addEventListener('load', drawQr);
+  $$('details.links-qr').forEach(d => d.addEventListener('toggle', drawQr));
+
+  /* ---- Simple click stats for any element with data-track ---- */
+  document.addEventListener('click', e => {
+    const t = e.target.closest('[data-track]');
+    if (t) ga(t.dataset.track, t.textContent.trim().slice(0, 60));
+  });
+
+  /* ---- Phone action bar: hide while the contact form is on screen ---- */
+  const bar = $('.action-bar');
+  const contact = $('#contact');
+  if (bar && contact && 'IntersectionObserver' in window) {
+    new IntersectionObserver(([en]) => bar.classList.toggle('away', en.isIntersecting), { threshold: 0.15 }).observe(contact);
   }
 })();
