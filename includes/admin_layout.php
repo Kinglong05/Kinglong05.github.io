@@ -77,8 +77,6 @@ function admin_footer(): void
     ?>
   </div>
 </div>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="assets/admin.js?v=<?= filemtime(APP_ROOT . '/admin/assets/admin.js') ?>"></script>
@@ -125,12 +123,7 @@ function render_field(string $name, array $def, $value): void
                 } else {
                     echo '<div class="upload-preview empty"><i class="fa-regular ' . match ($type) { 'image' => 'fa-image', 'video' => 'fa-file-video', default => 'fa-file' } . '"></i></div>';
                 }
-                // Images open the crop tool; 'aspect' (e.g. "2/3") is the suggested shape for this field
-                $crop = $type === 'image' ? ' data-crop data-aspect="' . e((string) ($def['aspect'] ?? '')) . '"' : '';
-                echo '<div class="upload-controls"><input type="file" id="' . $id . '" name="' . e($name) . '" accept="' . $accept . '" data-preview' . $crop . '>';
-                if ($value && $type === 'image' && !preg_match('~\.gif$~i', (string) $value)) {
-                    echo '<button type="button" class="btn btn-sm btn-ghost" data-crop-existing="' . e(url((string) $value)) . '" data-for="' . $id . '"><i class="fa-solid fa-crop-simple"></i> Crop current photo</button>';
-                }
+                echo '<div class="upload-controls"><input type="file" id="' . $id . '" name="' . e($name) . '" accept="' . $accept . '" data-preview>';
                 if ($value) {
                     echo '<label class="check-inline"><input type="checkbox" name="remove_' . e($name) . '" value="1"> Remove current</label>';
                 }

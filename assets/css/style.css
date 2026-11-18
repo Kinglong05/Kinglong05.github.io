@@ -945,35 +945,3 @@ body.intro-on { overflow: hidden; }
 [data-theme="light"] .faq[open] { background: rgba(212,149,15,.07); }
 [data-theme="light"] .client span { color: #2a292e; }
 [data-theme="light"] .intro { background: var(--bg); }
-
-/* ===========================================================
-   v5: hero portrait dissolve
-   =========================================================== */
-.hero-photo { position: relative; z-index: 1; max-width: 92%; line-height: 0; display: flex; justify-content: center; align-items: flex-end;
-  transform: translate3d(calc(var(--mx, 0) * -14px), calc(var(--my, 0) * -8px), 0); transition: transform .4s var(--ease); }
-.hero-visual .hero-photo .hero-img { max-width: 100%; transform: none; transition: none; }
-.hero-img-a { position: relative; z-index: 1; }
-.hero-img-b { position: absolute; inset: 0; z-index: 0; width: 100%; height: 100%; object-fit: contain; object-position: bottom; }
-.hero-dissolve { position: absolute; inset: 0; z-index: 2; width: 100%; height: 100%; pointer-events: none;
-  -webkit-mask-image: linear-gradient(180deg, #000 78%, transparent); mask-image: linear-gradient(180deg, #000 78%, transparent); }
-.hero-photo.dissolve-ready .hero-img-a { opacity: 0; }   /* the canvas draws it instead */
-.hero-photo[data-dissolve] { cursor: pointer; }
-/* Fallback cross-fade (reduced motion) */
-.hero-photo.fade-swap .hero-img-a { transition: opacity .6s ease; }
-.hero-photo.fade-swap.swapped .hero-img-a { opacity: 0; }
-
-/* The second photo is painted on the canvas; the plain image is only its source */
-.hero-photo.dissolve-ready .hero-img-b { opacity: 0; }
-.hero-photo:not(.fade-swap) .hero-img-b { opacity: 0; }
-.hero-photo.fade-swap .hero-img-b { opacity: 0; transition: opacity .6s ease; }
-.hero-photo.fade-swap.swapped .hero-img-b { opacity: 1; }
-
-/* Phones: gold ring under the finger + ripple when it lifts */
-.touch-dot { position: fixed; left: 0; top: 0; z-index: 160; width: 0; height: 0; pointer-events: none; }
-.touch-dot::after { content: ""; position: absolute; width: 46px; height: 46px; margin: -23px 0 0 -23px; border-radius: 50%;
-  border: 2px solid var(--gold); background: radial-gradient(circle, rgba(245,179,53,.28), rgba(245,179,53,.06) 60%, transparent 70%);
-  box-shadow: 0 0 18px rgba(245,179,53,.45); opacity: 0; transform: scale(.4); transition: opacity .18s ease, transform .25s var(--ease); }
-.touch-dot.on::after { opacity: 1; transform: scale(1); }
-.touch-ripple { position: fixed; z-index: 159; width: 46px; height: 46px; margin: -23px 0 0 -23px; border-radius: 50%; pointer-events: none;
-  border: 2px solid var(--gold); animation: touchRipple .65s ease-out forwards; }
-@keyframes touchRipple { from { transform: scale(.8); opacity: .85; } to { transform: scale(2.4); opacity: 0; } }
